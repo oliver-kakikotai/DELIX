@@ -242,14 +242,16 @@ export default function ConstellationSection() {
 
       {/* 日志条目列表 */}
       <div className="relative z-10 max-w-5xl mx-auto space-y-6">
-        {logEntries.map((entry, index) => (
+        {logEntries.map((entry, index) => {
+          const fromLeft = index % 2 === 0;
+          return (
           <motion.div
             key={entry.id}
             className="relative group cursor-pointer"
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
-            viewport={{ once: true }}
+            initial={{ opacity: 0, x: fromLeft ? -70 : 70, scale: 0.95, filter: 'blur(6px)' }}
+            whileInView={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+            transition={{ duration: 0.7, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            viewport={{ once: true, amount: 0.25 }}
             onMouseEnter={() => setHoveredLog(entry.id)}
             onMouseLeave={() => setHoveredLog(null)}
             onClick={() => setSelectedLog(entry.id)}
@@ -396,7 +398,8 @@ export default function ConstellationSection() {
               )}
             </div>
           </motion.div>
-        ))}
+        );
+        })}
       </div>
 
       {/* 详细日志弹窗 */}
