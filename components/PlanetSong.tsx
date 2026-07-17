@@ -82,11 +82,19 @@ export default function PlanetSong({ song, index, onClick }: PlanetSongProps) {
         }}
       >
         {/* 星球图片 */}
-        <img
-          src={song.planetImage || "/images/planet1.png"}
-          alt={song.title}
-          className="w-full h-full object-cover"
-        />
+        {song.planetImage ? (
+          <img
+            src={song.planetImage}
+            alt={song.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="planet-strip absolute top-0 left-0 flex h-full w-[300%]">
+            <img src="/images/planet1.png" alt={song.title}  className="w-1/3 h-full flex-shrink-0 object-cover" />
+            <img src="/images/planet5.png" alt="" aria-hidden="true" className="w-1/3 h-full flex-shrink-0 object-cover" />
+            <img src="/images/planet1.png" alt="" aria-hidden="true" className="w-1/3 h-full flex-shrink-0 object-cover" />
+          </div>
+        )}
 
         {/* Block图标 - 右下角（仅锁定时显示）*/}
         {!song.unlocked && (

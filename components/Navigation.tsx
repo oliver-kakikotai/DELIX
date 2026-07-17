@@ -1,119 +1,114 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+const links = [
+  { label: 'Album', href: '/', width: '62%' },
+  { label: 'Archive', href: '#signal-tools', width: '78%' },
+  { label: 'About', href: '#about', width: '48%' },
+  { label: 'Transmission', href: '#contact', width: '92%' },
+];
 
 function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 72);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const closeMenu = () => setIsMenuOpen(false);
 
   return (
-    // 添加固定定位和更高的 z-index
-    <nav className="fixed top-0 left-0 right-0 z-[60] py-3 lg:py-4 px-[5px]">
-      {/* Navigation container with 5px padding - 透明背景 */}
-      <div className="bg-black/20 backdrop-blur-md rounded-full px-6 lg:px-8 py-3 lg:py-4 shadow-lg border border-white/10 relative overflow-hidden">
-        {/* 流星效果 - 使用PNG图片 */}
-        <div className="absolute inset-0 pointer-events-none">
-          {[...Array(3)].map((_, i) => (
-            <img
-              key={i}
-              src="/images/star.png"
-              alt="meteor"
-              className="absolute"
-              style={{
-                top: `${30 + i * 20}%`,
-                left: '-100px',
-                height: '30px',
-                width: 'auto',
-                animation: `meteor ${8 + i * 2}s linear infinite`,
-                animationDelay: `${i * 4}s`,
-                transform: 'rotate(-30deg)',
-                filter: 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 12px rgba(255, 255, 255, 0.6))'
-              }}
-            />
-          ))}
-        </div>
+    <nav className="pointer-events-none fixed inset-x-0 top-0 z-[60] px-4 py-4 lg:px-7">
+      <div className="mx-auto flex max-w-[1500px] items-start justify-between gap-4">
+        <a
+          href="/"
+          aria-label="DELIX album"
+          className={`pointer-events-auto flex items-center rounded-full border border-white/12 bg-black/45 px-4 py-2 shadow-[0_12px_45px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-500 ${
+            isScrolled ? 'scale-90 opacity-70' : ''
+          }`}
+        >
+          <img src="/images/LOGO.png" alt="DELIX" className="h-9 w-auto lg:h-11" />
+        </a>
 
-        <div className="flex justify-between items-center relative z-10">
-          {/* Logo */}
-          <div className="flex items-center">
-            <img
-              src="/images/LOGO.png"
-              alt="DELIX"
-              className="h-12 lg:h-16 w-auto"
-            />
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
-            {/* Navigation Links */}
-            <div className="flex space-x-6 lg:space-x-8 text-white font-medium">
-              <a
-                href="/"
-                className="hover:text-purple-400 transition-colors duration-300 hover:scale-105 text-sm lg:text-base"
-              >
-                Album
-              </a>
-              <a
-                href="#about"
-                className="hover:text-purple-400 transition-colors duration-300 hover:scale-105 text-sm lg:text-base"
-              >
-                About
-              </a>
-              <a
-                href="#contact"
-                className="hover:text-purple-400 transition-colors duration-300 hover:scale-105 text-sm lg:text-base"
-              >
-                Contact
-              </a>
+        <div className="pointer-events-auto flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <div
+              className={`hidden items-center gap-2 rounded-full border border-cyan-100/15 bg-black/40 px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.24em] text-cyan-100/60 backdrop-blur-xl transition-all duration-500 sm:flex ${
+                isScrolled ? 'translate-x-3 opacity-0' : 'opacity-100'
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)]" />
+              Orbit online
             </div>
+
+            <button
+              type="button"
+              aria-expanded={isMenuOpen}
+              aria-label={isMenuOpen ? 'Close navigation' : 'Open navigation'}
+              onClick={() => setIsMenuOpen((open) => !open)}
+              className="group relative flex h-12 w-12 items-center justify-center rounded-full border border-cyan-100/25 bg-black/55 text-cyan-50 shadow-[0_10px_35px_rgba(0,0,0,0.4)] backdrop-blur-xl transition hover:border-cyan-100/60 hover:bg-cyan-100/10"
+            >
+              <span className="absolute inset-1 rounded-full border border-white/10" />
+              <span className="relative flex h-4 w-4 items-center justify-center">
+                <span className={`absolute h-px w-4 bg-current transition-transform duration-300 ${isMenuOpen ? 'rotate-45' : '-translate-y-1.5'}`} />
+                <span className={`absolute h-px w-4 bg-current transition-opacity duration-300 ${isMenuOpen ? 'opacity-0' : 'opacity-100'}`} />
+                <span className={`absolute h-px w-4 bg-current transition-transform duration-300 ${isMenuOpen ? '-rotate-45' : 'translate-y-1.5'}`} />
+              </span>
+            </button>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden text-white p-2"
-            onClick={toggleMenu}
-            aria-label="Toggle menu"
+          <div
+            className={`origin-top-right w-[min(88vw,430px)] overflow-hidden transition-all duration-300 ${
+              isMenuOpen ? 'pointer-events-auto max-h-96 translate-y-0 p-2 opacity-100' : 'pointer-events-none max-h-0 -translate-y-2 p-0 opacity-0'
+            }`}
           >
-            <div className="w-6 h-6 flex flex-col justify-center space-y-1">
-              <div className={`h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`}></div>
-              <div className={`h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'opacity-0' : ''}`}></div>
-              <div className={`h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}></div>
+            <div className="rounded-2xl border border-cyan-100/18 bg-black/72 p-2 shadow-[0_20px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
+              <div className="mb-1 flex items-center justify-between border-b border-white/10 px-3 py-2 text-[9px] uppercase tracking-[0.24em] text-cyan-100/45">
+                <span>Flight console</span>
+                <span>01 / 04</span>
+              </div>
+              <div className="px-3 pb-4 pt-3">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-cyan-100/50">
+                  Recovered signal / DELIX IP
+                </p>
+                <h2 className="mt-2 max-w-[260px] text-xl font-black leading-[0.95] text-white">
+                  Each planet is a song world.
+                </h2>
+                <p className="mt-3 max-w-[280px] text-xs leading-5 text-white/52">
+                  Approach the worlds through orbit. Locked songs answer to signal tools found in the archive.
+                </p>
+                <p className="mt-3 text-[9px] uppercase tracking-[0.2em] text-white/35">
+                  Scroll to enter orbit
+                </p>
+              </div>
             </div>
-          </button>
+
+            <div className="flex w-full flex-col items-end gap-3 px-1 pt-4">
+              {links.map((link, index) => (
+                <div key={link.label} style={{ width: link.width }}>
+                  <a
+                    href={link.href}
+                    onClick={closeMenu}
+                    className="group flex items-center justify-end gap-4 border-b border-white/15 px-3 py-3 text-right transition hover:border-cyan-100/60"
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/65 transition group-hover:text-cyan-50">
+                      {link.label}
+                    </span>
+                    <span className="text-[9px] text-cyan-100/35 transition group-hover:text-cyan-100/70">
+                      0{index + 1}
+                    </span>
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="absolute top-full left-[5px] right-[5px] bg-black/30 backdrop-blur-md rounded-2xl mt-2 p-4 md:hidden shadow-lg border border-white/10 z-40">
-          <div className="flex flex-col space-y-3 text-white font-medium">
-            <a
-              href="/"
-              className="hover:text-purple-400 transition-colors py-2 text-center"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Album
-            </a>
-            <a
-              href="#about"
-              className="hover:text-purple-400 transition-colors py-2 text-center"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              About
-            </a>
-            <a
-              href="#contact"
-              className="hover:text-purple-400 transition-colors py-2 text-center"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Contact
-            </a>
-          </div>
-        </div>
-      )}
     </nav>
   );
 }

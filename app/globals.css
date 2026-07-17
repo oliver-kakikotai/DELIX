@@ -8,8 +8,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-syne);
+}
+
+body {
+  font-family: var(--font-syne), system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1367,6 +1370,40 @@ html {
       0 0 190px rgba(59, 130, 246, 0.05);
   }
 }
+/* ── Planet self-rotation: [p1 | p5 | p1] strip, continuous left scroll ── */
+.planet-strip {
+  animation: planet-self-rotate 14s linear infinite;
+  will-change: transform;
+}
+
+@keyframes planet-self-rotate {
+  from { transform: translateX(0%); }
+  to   { transform: translateX(-66.6667%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planet-strip { animation: none !important; transform: translateX(0%) !important; }
+}
+
+/* ── Planet pattern self-scroll: [pattern | pattern | pattern] strip.
+   Base layer (planet root1.png) never moves. Panel 1 and panel 3 are the
+   same image, so the loop restarts on an identical frame (no jump).
+   planetpattern.PNG isn't a tileable texture, so there is one visible
+   seam per lap where panel 1 meets panel 2. ── */
+.planet-pattern-strip {
+  animation: planet-pattern-scroll 36s linear infinite;
+  will-change: transform;
+}
+
+@keyframes planet-pattern-scroll {
+  from { transform: translateX(0%); }
+  to   { transform: translateX(-66.6667%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planet-pattern-strip { animation: none !important; transform: translateX(0%) !important; }
+}
+
 /* 导航栏流星效果 */
 @keyframes meteor {
   0% {

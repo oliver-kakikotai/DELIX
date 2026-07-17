@@ -51,13 +51,18 @@ interface Model3DViewerProps {
   className?: string;
   autoRotate?: boolean;
   autoRotateSpeed?: number;
+  // When false, the WebGL render loop is paused entirely (not just hidden via
+  // opacity) — the scene keeps rendering every frame otherwise, even while
+  // scrolled far off the visible portal phase.
+  active?: boolean;
 }
 
 function Model3DViewer({
   modelPath = '/models/hitem3d.glb',
   className = '',
   autoRotate = true,
-  autoRotateSpeed = 2
+  autoRotateSpeed = 2,
+  active = true
 }: Model3DViewerProps) {
   const [isClient, setIsClient] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -87,6 +92,7 @@ function Model3DViewer({
       }}
     >
       <Canvas
+        frameloop={active ? 'always' : 'never'}
         camera={{
           position: [0, 0, 4],
           fov: 45,

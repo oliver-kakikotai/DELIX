@@ -9,11 +9,59 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnlock } from '@/contexts/UnlockContext';
 import LyricsDisplay from '@/components/LyricsDisplay';
 
+const songWorlds: Record<string, {
+  signal: string;
+  atmosphere: string;
+  background: string;
+  accent: string;
+  media?: 'video' | 'star';
+  mediaSrc?: string;
+}> = {
+  tomorrow: {
+    signal: 'COMFORT ORBIT',
+    atmosphere: 'A warm world for ambition, hesitation, and the small gravity of tomorrow.',
+    background: 'radial-gradient(circle at 22% 34%, rgba(255,215,0,0.24), transparent 34%), radial-gradient(circle at 78% 72%, rgba(255,118,75,0.16), transparent 32%), #020204',
+    accent: '#FFD700',
+    media: 'star',
+  },
+  'the-real-reason': {
+    signal: 'REASON CHAMBER',
+    atmosphere: 'A violet signal room where the hidden motive finally becomes visible.',
+    background: 'radial-gradient(circle at 68% 32%, rgba(155,89,182,0.28), transparent 36%), radial-gradient(circle at 24% 76%, rgba(70,42,118,0.2), transparent 34%), #020205',
+    accent: '#9B59B6',
+    media: 'video',
+    mediaSrc: '/video/therealreason.mp4',
+  },
+  'third-person': {
+    signal: 'OUTSIDE VIEW',
+    atmosphere: 'A blue observation deck for seeing yourself from one step away.',
+    background: 'radial-gradient(circle at 50% 28%, rgba(52,152,219,0.28), transparent 34%), radial-gradient(circle at 20% 82%, rgba(126,188,255,0.13), transparent 30%), #02050a',
+    accent: '#3498DB',
+    media: 'video',
+    mediaSrc: '/video/car.MP4',
+  },
+  'salmon-and-potatoes': {
+    signal: 'MEMORY TABLE',
+    atmosphere: 'A quiet archive of ordinary comfort, soft rituals, and remembered appetite.',
+    background: 'radial-gradient(circle at 26% 30%, rgba(230,126,34,0.24), transparent 34%), radial-gradient(circle at 76% 70%, rgba(255,214,153,0.12), transparent 34%), #050302',
+    accent: '#E67E22',
+    media: 'video',
+    mediaSrc: '/video/book.MP4',
+  },
+  'the-ascension': {
+    signal: 'ASCENSION GATE',
+    atmosphere: 'A final lift through bright pressure, release, and a widening sky.',
+    background: 'radial-gradient(circle at 50% 24%, rgba(236,240,241,0.22), transparent 30%), radial-gradient(circle at 76% 72%, rgba(126,155,255,0.18), transparent 34%), #030307',
+    accent: '#ECF0F1',
+    media: 'star',
+  },
+};
+
 export default function SongPage() {
   const params = useParams();
   const router = useRouter();
   const { currentLanguage } = useLanguage();
-  const { playSong, currentSong, isPlaying, currentTime } = useAudio();
+  const { startSong, currentSong, isPlaying, currentTime } = useAudio();
   const { checkUnlock } = useUnlock();
   const [showMeteors, setShowMeteors] = useState(false);
 
@@ -38,12 +86,12 @@ export default function SongPage() {
     if (!isUnlocked) {
       console.log('🔒 Song not unlocked, redirecting to home');
       router.push('/');
-    } else if (!currentSong || currentSong.id !== song.id) {
-      // 自动播放歌曲
+    } else if (currentSong?.id !== song.id) {
+      // 自动同步到当前 URL 对应的歌曲
       console.log('▶️ Auto-playing song');
-      playSong(song);
+      startSong(song);
     }
-  }, [song, router, currentSong, playSong, checkUnlock]);
+  }, [song, router, currentSong?.id, startSong, checkUnlock]);
 
   // 监听特定歌词时间，触发星星效果
   useEffect(() => {
@@ -76,62 +124,78 @@ export default function SongPage() {
 
   const t = (key: keyof typeof translations) =>
     translations[key][currentLanguage as keyof typeof translations[typeof key]];
+  const world = songWorlds[song.slug] || {
+    signal: 'SONG WORLD',
+    atmosphere: song.description?.[currentLanguage as keyof typeof song.description] || 'A recovered signal in the DELIX archive.',
+    background: `radial-gradient(circle at 50% 50%, ${song.color || '#ffffff'}30, transparent 70%), #020204`,
+    accent: song.color || '#ffffff',
+    media: 'star',
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-black relative overflow-hidden">
-      {/* 宇宙背景 */}
+    <div className="relative min-h-screen overflow-hidden text-white" style={{ background: world.background }}>
       <div className="absolute inset-0">
-        {/* 主色调背景 - 根据歌曲主题色 */}
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            background: `radial-gradient(circle at 50% 50%, ${song.color}40, transparent 70%)`
-          }}
-        />
-
-        {/* 星星 */}
-        <div className="absolute inset-0">
-          {[...Array(30)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-white rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
-              animate={{
-                opacity: [0.2, 1, 0.2],
-                scale: [0.5, 1, 0.5]
-              }}
-              transition={{
-                duration: 2 + Math.random() * 3,
-                repeat: Infinity,
-                delay: Math.random() * 5
-              }}
-            />
-          ))}
-        </div>
+        {world.media === 'video' && world.mediaSrc ? (
+          <video
+            src={world.mediaSrc}
+            className="absolute inset-0 h-full w-full object-cover opacity-32"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        ) : (
+          <motion.img
+            src="/images/star.png"
+            alt=""
+            className="absolute bottom-[-12vh] right-[4vw] h-[58vmin] w-[58vmin] object-contain opacity-80"
+            style={{
+              filter: `drop-shadow(0 0 40px ${world.accent}80)`,
+            }}
+            animate={{
+              y: isPlaying ? [0, -18, 0] : 0,
+              rotate: isPlaying ? [-2, 2, -2] : 0,
+            }}
+            transition={{ duration: 8, repeat: isPlaying ? Infinity : 0, ease: 'easeInOut' }}
+          />
+        )}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,transparent_0%,rgba(0,0,0,0.28)_42%,rgba(0,0,0,0.82)_100%)]" />
+        <div className="absolute inset-0 bg-black/28" />
+        {[...Array(38)].map((_, i) => (
+          <motion.span
+            key={i}
+            className="absolute rounded-full bg-white"
+            style={{
+              left: `${(i * 37 + 9) % 100}%`,
+              top: `${(i * 61 + 17) % 100}%`,
+              width: 1 + (i % 3),
+              height: 1 + (i % 3),
+              opacity: 0.18 + ((i * 11) % 45) / 100,
+            }}
+            animate={{ opacity: [0.16, 0.72, 0.16] }}
+            transition={{ duration: 3 + (i % 5), repeat: Infinity, delay: (i % 7) * 0.3 }}
+          />
+        ))}
       </div>
 
-      {/* 主要内容 */}
       <div className="relative z-10">
-        {/* 顶部导航 */}
         <motion.div
-          className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-white/10"
+          className="fixed left-0 right-0 top-0 z-50 border-b bg-black/30 backdrop-blur-md"
+          style={{ borderColor: `${world.accent}24` }}
           initial={{ y: -100 }}
           animate={{ y: 0 }}
         >
-          <div className="container mx-auto px-8 py-4 flex items-center justify-between">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
             <button
               onClick={() => router.push('/')}
-              className="flex items-center gap-2 text-white hover:text-purple-400 transition-colors"
+              className="flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white"
             >
               <span className="text-2xl">←</span>
               <span>{t('back')}</span>
             </button>
 
             <div className="text-center">
-              <p className="text-gray-400 text-sm">{t('nowPlaying')}</p>
+              <p className="text-sm text-white/42">{t('nowPlaying')}</p>
               <h2 className="text-white text-xl font-bold">{song.title}</h2>
             </div>
 
@@ -139,247 +203,74 @@ export default function SongPage() {
           </div>
         </motion.div>
 
-        {/* 歌曲内容区域 */}
-        <div className="container mx-auto px-8 pt-32 pb-40 min-h-screen flex items-center">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 w-full">
+        <main className="relative flex min-h-screen items-center justify-center px-5 pb-36 pt-28">
+          <motion.section
+            className="w-full max-w-5xl"
+            initial={{ opacity: 0, y: 34 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <div className="mb-8 text-center">
+              <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.34em]" style={{ color: `${world.accent}aa` }}>
+                {world.signal}
+              </p>
+              <h1 className="text-6xl font-black leading-none md:text-8xl">{song.title}</h1>
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/54">{world.atmosphere}</p>
+            </div>
 
-            {/* 左侧：歌词区域 */}
             <motion.div
-              className="flex flex-col justify-center"
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
+              className="relative mx-auto max-w-4xl overflow-hidden border bg-black/28 shadow-[0_30px_140px_rgba(0,0,0,0.42)] backdrop-blur-xl"
+              style={{ borderColor: `${world.accent}24` }}
+              animate={{
+                boxShadow: isPlaying
+                  ? [`0 24px 120px ${world.accent}14`, `0 34px 160px ${world.accent}28`, `0 24px 120px ${world.accent}14`]
+                  : `0 24px 120px rgba(0,0,0,0.42)`,
+              }}
+              transition={{ duration: 4, repeat: isPlaying ? Infinity : 0 }}
             >
-              <div className="bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/10">
-                <div className="p-8 border-b border-white/10">
-                  <h1 className="text-5xl font-black text-white">
-                    {song.title}
-                  </h1>
-                  {song.description && (
-                    <p className="text-gray-400 mt-4">
-                      {song.description[currentLanguage as keyof typeof song.description]}
-                    </p>
-                  )}
-                </div>
-
-                {/* 歌词同步显示 */}
-                <LyricsDisplay className="h-[500px]" />
-              </div>
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${world.accent}88, transparent)` }} />
+              <LyricsDisplay
+                key={song.id}
+                lyricsPath={song.lyricsPath}
+                className="h-[48vh] min-h-[390px]"
+              />
             </motion.div>
 
-            {/* 右侧：视频（The Real Reason）或 star.png 动画 */}
-            <motion.div
-              className="flex items-center justify-center"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
-            >
-              {song.slug === 'the-real-reason' ? (
-                /* The Real Reason 专属：全屏视频 */
-                <div className="relative w-full min-h-[700px] h-full">
-                  <video
-                    src="/video/therealreason.mp4"
-                    className="w-full h-full min-h-[700px] object-cover"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                </div>
-              ) : song.slug === 'third-person' ? (
-                /* Third Person 专属：全屏视频 */
-                <div className="relative w-full min-h-[700px] h-full">
-                  <video
-                    src="/video/car.MP4"
-                    className="w-full h-full min-h-[700px] object-cover"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                </div>
-              ) : song.slug === 'salmon-and-potatoes' ? (
-                /* Salmon and Potatoes 专属：全屏视频 */
-                <div className="relative w-full min-h-[700px] h-full">
-                  <video
-                    src="/video/book.MP4"
-                    className="w-full h-full min-h-[700px] object-cover"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                </div>
-              ) : (
-                /* 其他歌曲：star.png 动画 */
-                <div className="relative w-full aspect-square max-w-lg flex items-center justify-center overflow-visible">
-                  {/* 发光背景效果 */}
-                  <motion.div
-                    className="absolute w-96 h-96 rounded-full blur-3xl"
-                    style={{
-                      background: `radial-gradient(circle, ${song.color}40, transparent 70%)`,
-                    }}
-                    animate={{
-                      scale: isPlaying ? [1, 1.3, 1] : 1,
-                      opacity: isPlaying ? [0.3, 0.6, 0.3] : 0.3,
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: isPlaying ? Infinity : 0,
-                      ease: "easeInOut"
-                    }}
-                  />
-
-                  <motion.img
-                    src="/images/star.png"
-                    alt="Star"
-                    className="relative z-10 w-64 h-64 object-contain"
-                    style={{
-                      filter: `drop-shadow(0 0 30px ${song.color}) drop-shadow(0 0 60px ${song.color}80)`,
-                    }}
-                    animate={{
-                      rotate: isPlaying ? 360 : 0,
-                      scale: isPlaying ? [1, 1.1, 1] : 1,
-                    }}
-                    transition={{
-                      rotate: {
-                        duration: 8,
-                        repeat: isPlaying ? Infinity : 0,
-                        ease: "linear",
-                      },
-                      scale: {
-                        duration: 2,
-                        repeat: isPlaying ? Infinity : 0,
-                        ease: "easeInOut",
-                      }
-                    }}
-                  />
-
-                  {/* 环绕星星效果 - 两圈（仅其他歌曲显示）*/}
-                  <AnimatePresence>
-                    {showMeteors && (
-                      <>
-                      {/* 第一圈：8颗星星，半径150px */}
-                      {[...Array(8)].map((_, i) => {
-                        const angle = (i * 360) / 8;
-                        const radius = 150;
-                        return (
-                          <motion.div
-                            key={`orbit1-${i}`}
-                            className="absolute pointer-events-none"
-                            style={{
-                              left: '50%',
-                              top: '50%',
-                            }}
-                            initial={{
-                              x: -16,
-                              y: -16,
-                              rotate: angle,
-                              opacity: 0,
-                              scale: 0,
-                            }}
-                            animate={{
-                              rotate: [angle, angle + 360],
-                              opacity: 1,
-                              scale: 1,
-                            }}
-                            exit={{
-                              opacity: 0,
-                              scale: 0,
-                            }}
-                            transition={{
-                              rotate: {
-                                duration: 4,
-                                repeat: Infinity,
-                                ease: "linear",
-                              },
-                              opacity: {
-                                duration: 0.5,
-                                delay: i * 0.1,
-                              },
-                              scale: {
-                                duration: 0.5,
-                                delay: i * 0.1,
-                              }
-                            }}
-                          >
-                            <img
-                              src="/images/star.png"
-                              alt="Star"
-                              className="w-8 h-8 object-contain"
-                              style={{
-                                filter: `drop-shadow(0 0 6px ${song.color}) drop-shadow(0 0 12px ${song.color})`,
-                                transform: `translateX(${radius}px)`,
-                              }}
-                            />
-                          </motion.div>
-                        );
-                      })}
-
-                      {/* 第二圈：7颗星星，半径220px，反向旋转 */}
-                      {[...Array(7)].map((_, i) => {
-                        const angle = (i * 360) / 7;
-                        const radius = 220;
-                        return (
-                          <motion.div
-                            key={`orbit2-${i}`}
-                            className="absolute pointer-events-none"
-                            style={{
-                              left: '50%',
-                              top: '50%',
-                            }}
-                            initial={{
-                              x: -20,
-                              y: -20,
-                              rotate: angle,
-                              opacity: 0,
-                              scale: 0,
-                            }}
-                            animate={{
-                              rotate: [angle, angle - 360],
-                              opacity: 1,
-                              scale: 1,
-                            }}
-                            exit={{
-                              opacity: 0,
-                              scale: 0,
-                            }}
-                            transition={{
-                              rotate: {
-                                duration: 6,
-                                repeat: Infinity,
-                                ease: "linear",
-                              },
-                              opacity: {
-                                duration: 0.5,
-                                delay: 0.5 + i * 0.1,
-                              },
-                              scale: {
-                                duration: 0.5,
-                                delay: 0.5 + i * 0.1,
-                              }
-                            }}
-                          >
-                            <img
-                              src="/images/star.png"
-                              alt="Star"
-                              className="w-10 h-10 object-contain"
-                              style={{
-                                filter: `drop-shadow(0 0 8px ${song.color}) drop-shadow(0 0 16px ${song.color})`,
-                                transform: `translateX(${radius}px)`,
-                              }}
-                            />
-                          </motion.div>
-                        );
-                      })}
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
+            <AnimatePresence>
+              {showMeteors && (
+                <motion.div
+                  className="pointer-events-none absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {[...Array(14)].map((_, i) => (
+                    <motion.img
+                      key={i}
+                      src="/images/star.png"
+                      alt=""
+                      className="absolute h-8 w-8 object-contain"
+                      style={{
+                        left: `${(i * 23 + 8) % 100}%`,
+                        top: `${(i * 41 + 12) % 100}%`,
+                        filter: `drop-shadow(0 0 10px ${world.accent})`,
+                      }}
+                      animate={{ y: [0, -26, 0], rotate: [0, 180, 360], opacity: [0, 1, 0] }}
+                      transition={{ duration: 4 + (i % 4), repeat: Infinity, delay: i * 0.12 }}
+                    />
+                  ))}
+                </motion.div>
               )}
-            </motion.div>
-          </div>
-        </div>
+            </AnimatePresence>
+
+            <div className="pointer-events-none fixed bottom-24 left-5 z-20 hidden max-w-xs border border-white/10 bg-black/36 p-4 backdrop-blur-xl md:block">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: `${world.accent}aa` }}>
+                Current World
+              </p>
+              <p className="text-sm leading-6 text-white/58">{world.atmosphere}</p>
+            </div>
+          </motion.section>
+        </main>
       </div>
     </div>
   );

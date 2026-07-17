@@ -254,7 +254,7 @@ function FeaturedProjects() {
           </button>
         </div>
       </div>
-    </section>›
+    </section>
     
   );
 }

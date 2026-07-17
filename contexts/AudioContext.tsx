@@ -19,6 +19,7 @@ interface AudioContextType {
 
   // 方法
   playSong: (song: Song) => void;
+  startSong: (song: Song) => void;
   togglePlay: () => void;
   pause: () => void;
   seek: (time: number) => void;
@@ -80,24 +81,33 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     };
   }, [loop]);
 
-  // 播放歌曲
-  const playSong = (song: Song) => {
+  const startSong = (song: Song) => {
     if (!audioRef.current) return;
 
-    // 如果是同一首歌，只切换播放/暂停
     if (currentSong?.id === song.id) {
-      togglePlay();
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch(error => {
+          console.error('Playback error:', error);
+          setIsPlaying(false);
+        });
       return;
     }
 
-    // 切换到新歌曲
     setCurrentSong(song);
+    setCurrentTime(0);
+    setDuration(0);
+    audioRef.current.pause();
     audioRef.current.src = song.audioPath;
     audioRef.current.load();
 
-    // 等待音频加载完成后再播放
     audioRef.current.addEventListener('canplay', () => {
       audioRef.current?.play()
+        .then(() => {
+          setIsPlaying(true);
+        })
         .catch(error => {
           console.error('Playback error:', error);
           setIsPlaying(false);
@@ -105,6 +115,18 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }, { once: true });
 
     setIsPlaying(true);
+  };
+
+  // 播放歌曲。相同歌曲时作为播放/暂停按钮使用，不同歌曲时切换到新歌曲。
+  const playSong = (song: Song) => {
+    if (!audioRef.current) return;
+
+    if (currentSong?.id === song.id) {
+      togglePlay();
+      return;
+    }
+
+    startSong(song);
   };
 
   // 切换播放/暂停
@@ -191,6 +213,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     volume,
     loop,
     playSong,
+    startSong,
     togglePlay,
     pause,
     seek,

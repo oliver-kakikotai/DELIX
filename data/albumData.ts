@@ -31,6 +31,7 @@ export interface Song {
   duration?: string; // 歌曲时长 "3:45"
   unlocked: boolean; // 是否解锁
   color?: string; // 主题色
+  genre?: string; // 音乐风格
   unlockCondition?: UnlockCondition; // 解锁条件
   intro?: string; // 歌曲简介
   description?: {
@@ -65,9 +66,11 @@ export const albumData: Album = {
       audioPath: "/audio/songs/Tomorrow.mp3",
       lyricsPath: "/audio/lyrics/tomorrow-sample.lrc",
       coverPath: "/audio/covers/01-tomorrow.jpg",
+      planetImage: "/images/planet1.png",
       duration: "3:30",
       unlocked: false,
       color: "#FFD700", // 金色
+      genre: "Indie Pop / Motivational",
       intro: "For you who want to work hard but are attached to comfort",
       unlockCondition: {
         type: 'manual',
@@ -95,6 +98,7 @@ export const albumData: Album = {
       duration: "4:15",
       unlocked: false,
       color: "#9B59B6", // 紫色
+      genre: "Indie R&B / Introspective",
       intro: "When you finally understand why you keep running away",
       unlockCondition: {
         type: 'manual',
@@ -122,6 +126,7 @@ export const albumData: Album = {
       duration: "3:52",
       unlocked: true,
       color: "#3498DB", // 蓝色
+      genre: "Alternative / Reflective",
       intro: "Sometimes you need to step back and see yourself clearly",
       unlockCondition: {
         type: 'auto',
@@ -149,6 +154,7 @@ export const albumData: Album = {
       duration: "3:20",
       unlocked: false,
       color: "#E74C3C", // 红橙色
+      genre: "Lo-fi Indie / Warmth",
       intro: "Life's simple joys taste better when shared with someone special",
       unlockCondition: {
         type: 'manual',
@@ -176,6 +182,7 @@ export const albumData: Album = {
       duration: "4:00",
       unlocked: false,
       color: "#1ABC9C", // 青绿色
+      genre: "Ambient Pop / Epic",
       intro: "Rising above, reaching for the stars",
       unlockCondition: {
         type: 'manual',

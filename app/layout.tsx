@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Syne } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AudioProvider } from '@/contexts/AudioContext';
@@ -7,14 +7,11 @@ import { UnlockProvider } from '@/contexts/UnlockContext';
 import GlobalAudioPlayer from '@/components/GlobalAudioPlayer';
 import UnlockTracker from '@/components/UnlockTracker';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const syne = Syne({
+  variable: "--font-syne",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -58,7 +55,7 @@ export default function RootLayout({
         <link rel="alternate" hrefLang="x-default" href="/" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black`}
+        className={`${syne.variable} antialiased bg-black`}
       >
         <UnlockProvider>
           <AudioProvider>

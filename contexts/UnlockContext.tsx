@@ -35,19 +35,22 @@ const UnlockContext = createContext<UnlockContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'delix_unlock_stats';
 const DATA_VERSION = 2; // 数据版本号，变更时会自动重置旧数据
+const baseUnlockedSongIds = albumData.songs
+  .filter(song => song.unlocked)
+  .map(song => song.id);
 
 // 默认统计数据
 const defaultStats: UnlockStats = {
   totalTimePlayed: 0,
   lyricsClickCount: 0,
-  unlockedSongIds: [], // 空数组，实际unlock状态从albumData读取
+  unlockedSongIds: baseUnlockedSongIds,
   songProgress: {},
   collectedTools: [] // 已收集的工具
 };
 
 export function UnlockProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<UnlockStats>(defaultStats);
-  const [unlockedSongs, setUnlockedSongs] = useState<Set<number>>(new Set());
+  const [unlockedSongs, setUnlockedSongs] = useState<Set<number>>(new Set(baseUnlockedSongIds));
 
   // 从 localStorage 加载数据
   useEffect(() => {
@@ -55,11 +58,6 @@ export function UnlockProvider({ children }: { children: ReactNode }) {
       try {
         let saved = localStorage.getItem(STORAGE_KEY);
         const savedVersion = localStorage.getItem(STORAGE_KEY + '_version');
-
-        // 从 albumData 获取所有设置为 unlocked: true 的歌曲（作为基础状态）
-        const baseUnlockedSongIds = albumData.songs
-          .filter(song => song.unlocked)
-          .map(song => song.id);
 
         // 版本检查：如果版本不匹配，清除旧数据
         if (saved && savedVersion !== String(DATA_VERSION)) {
@@ -107,7 +105,7 @@ export function UnlockProvider({ children }: { children: ReactNode }) {
             totalTimePlayed: parsed.totalTimePlayed || 0,
             lyricsClickCount: parsed.lyricsClickCount || 0,
             songProgress: parsed.songProgress || {},
-            collectedTools: parsed.collectedTools || [],
+            collectedTools: [], // reset each session so the pocket game replays; songs stay unlocked via unlockedSongIds
             unlockedSongIds: initialUnlockedIds
           });
           setUnlockedSongs(new Set(initialUnlockedIds));
@@ -338,29 +336,33 @@ export function UnlockProvider({ children }: { children: ReactNode }) {
 
   // 收集工具
   const collectTool = (toolId: number) => {
+    const toolToSongMap: Record<number, number> = {
+      1: 2, // 工具1 (STELLAR NAVIGATOR) → 解锁歌曲2 (The Real Reason)
+      3: 4, // 工具3 (TEMPORAL DECODER) → 解锁歌曲4 (Salmon and Potatoes)
+      4: 5, // 工具4 (ASCENSION CORE) → 解锁歌曲5 (The Ascension)
+      5: 1  // 工具5 (COSMIC AMPLIFIER) → 解锁歌曲1 (Tomorrow)
+    };
+    const songToUnlock = toolToSongMap[toolId];
+
+    if (songToUnlock && !unlockedSongs.has(songToUnlock)) {
+      const newUnlockedSongs = new Set(unlockedSongs);
+      newUnlockedSongs.add(songToUnlock);
+      setUnlockedSongs(newUnlockedSongs);
+    }
+
     setStats(prev => {
       if (prev.collectedTools.includes(toolId)) {
         return prev; // 已收集，不重复添加
       }
 
       const newCollectedTools = [...prev.collectedTools, toolId];
-
-      // 工具到歌曲的映射关系
-      const toolToSongMap: Record<number, number> = {
-        1: 2, // 工具1 (STELLAR NAVIGATOR) → 解锁歌曲2 (The Real Reason)
-        3: 4, // 工具3 (TEMPORAL DECODER) → 解锁歌曲4 (Salmon and Potatoes)
-        4: 5, // 工具4 (ASCENSION CORE) → 解锁歌曲5 (The Ascension)
-        5: 1  // 工具5 (COSMIC AMPLIFIER) → 解锁歌曲1 (Tomorrow)
-      };
-
-      // 收集工具后自动解锁对应歌曲
-      const songToUnlock = toolToSongMap[toolId];
-      if (songToUnlock && !unlockedSongs.has(songToUnlock)) {
-        unlockSong(songToUnlock);
-      }
+      const unlockedSongIds = songToUnlock
+        ? Array.from(new Set([...prev.unlockedSongIds, songToUnlock]))
+        : prev.unlockedSongIds;
 
       return {
         ...prev,
+        unlockedSongIds,
         collectedTools: newCollectedTools
       };
     });

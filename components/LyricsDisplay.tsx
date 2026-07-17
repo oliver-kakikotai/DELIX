@@ -56,6 +56,8 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
   useEffect(() => {
     if (!currentSong?.lyricsPath && !lyricsPath) {
       setLyrics([]);
+      setCurrentLineIndex(-1);
+      setTranslateY(0);
       return;
     }
 
@@ -67,6 +69,8 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
       .then(text => {
         const parsedLyrics = parseLRC(text);
         setLyrics(parsedLyrics);
+        setCurrentLineIndex(-1);
+        setTranslateY(0);
         // 初始化 refs 数组
         lyricsRefs.current = new Array(parsedLyrics.length).fill(null);
       })
