@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 
 const links = [
   { label: 'Album', href: '/', width: '62%' },
-  { label: 'Archive', href: '#signal-tools', width: '78%' },
-  { label: 'About', href: '#about', width: '48%' },
-  { label: 'Transmission', href: '#contact', width: '92%' },
+  // /#signal-tools (not a bare #signal-tools) so this still navigates back
+  // to the homepage section from other pages like /song/[slug], instead of
+  // trying to scroll to an anchor that doesn't exist on the current page.
+  { label: 'Archive', href: '/#signal-tools', width: '78%' },
 ];
 
 function Navigation() {
@@ -70,7 +71,7 @@ function Navigation() {
             <div className="rounded-2xl border border-cyan-100/18 bg-black/72 p-2 shadow-[0_20px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
               <div className="mb-1 flex items-center justify-between border-b border-white/10 px-3 py-2 text-[9px] uppercase tracking-[0.24em] text-cyan-100/45">
                 <span>Flight console</span>
-                <span>01 / 04</span>
+                <span>01 / 0{links.length}</span>
               </div>
               <div className="px-3 pb-4 pt-3">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-cyan-100/50">

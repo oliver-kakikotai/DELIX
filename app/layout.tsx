@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Syne } from "next/font/google";
+import { Archivo } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AudioProvider } from '@/contexts/AudioContext';
@@ -7,10 +7,14 @@ import { UnlockProvider } from '@/contexts/UnlockContext';
 import GlobalAudioPlayer from '@/components/GlobalAudioPlayer';
 import UnlockTracker from '@/components/UnlockTracker';
 
-const syne = Syne({
-  variable: "--font-syne",
+// Stand-in for "Bandit Condensed" (a paid Pangram Pangram display face) —
+// Archivo is a free Google Font with the same bold-grotesque character, and
+// its variable weight axis (100-900) covers everything from body text up to
+// the near-black display weight the site's `font-black` headings already use.
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "variable",
   display: "swap",
 });
 
@@ -55,7 +59,7 @@ export default function RootLayout({
         <link rel="alternate" hrefLang="x-default" href="/" />
       </head>
       <body
-        className={`${syne.variable} antialiased bg-black`}
+        className={`${archivo.variable} antialiased bg-black`}
       >
         <UnlockProvider>
           <AudioProvider>

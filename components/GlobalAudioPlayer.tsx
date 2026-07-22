@@ -51,6 +51,10 @@ export default function GlobalAudioPlayer() {
   if (!currentSong) return null;
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  // Each song has its own accent color and planet art (see data/albumData.ts) —
+  // theming the mini-player with it ties the persistent bottom bar back into
+  // the song's own "world" instead of a generic purple/pink placeholder.
+  const accent = currentSong.color || '#a855f7';
 
   return (
     <AnimatePresence>
@@ -89,8 +93,24 @@ export default function GlobalAudioPlayer() {
             {/* 歌曲信息 */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* 专辑封面 */}
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg">
-                <span className="text-xl">🎵</span>
+              <div
+                className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border shadow-lg"
+                style={{ borderColor: `${accent}55`, boxShadow: `0 0 18px ${accent}40` }}
+              >
+                {currentSong.planetImage ? (
+                  <img
+                    src={currentSong.planetImage}
+                    alt={currentSong.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center"
+                    style={{ background: `linear-gradient(135deg, ${accent}, ${accent}55)` }}
+                  >
+                    <span className="text-xl">🎵</span>
+                  </div>
+                )}
               </div>
 
               {/* 歌曲标题 */}
@@ -120,6 +140,7 @@ export default function GlobalAudioPlayer() {
                 <button
                   onClick={togglePlay}
                   className="w-10 h-10 rounded-full bg-white hover:bg-gray-200 flex items-center justify-center transition-all transform hover:scale-105 shadow-lg"
+                  style={{ boxShadow: isPlaying ? `0 0 20px ${accent}66` : undefined }}
                 >
                   {isPlaying ? (
                     <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
@@ -154,8 +175,8 @@ export default function GlobalAudioPlayer() {
                   onClick={handleProgressClick}
                 >
                   <motion.div
-                    className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full relative"
-                    style={{ width: `${progress}%` }}
+                    className="h-full rounded-full relative"
+                    style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${accent}, ${accent}cc)` }}
                   >
                     {/* 进度条圆点 */}
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -207,7 +228,7 @@ export default function GlobalAudioPlayer() {
                         onChange={handleVolumeChange}
                         className="h-20 w-1.5 appearance-none bg-gray-700 rounded-full cursor-pointer [writing-mode:vertical-lr] [direction:rtl]"
                         style={{
-                          background: `linear-gradient(to top, #a855f7 0%, #a855f7 ${volume * 100}%, #374151 ${volume * 100}%, #374151 100%)`
+                          background: `linear-gradient(to top, ${accent} 0%, ${accent} ${volume * 100}%, #374151 ${volume * 100}%, #374151 100%)`
                         }}
                       />
                     </motion.div>

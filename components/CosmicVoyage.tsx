@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, MotionValue, useMotionValueEvent, useScroll, useTransform } from 'framer-motion';
+import { motion, MotionValue, useInView, useMotionValueEvent, useScroll, useSpring, useTransform } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { albumData } from '@/data/albumData';
 import { useUnlock } from '@/contexts/UnlockContext';
@@ -82,80 +82,6 @@ const missionPrinciples = [
     text: 'Lyrics, tools, visual fragments, and song pages build the Runaway Rabbit universe over time.',
   },
 ];
-
-function PortalLightRing({ layer }: { layer: 'back' | 'front' }) {
-  return (
-    <div
-      className={`pointer-events-none absolute inset-[-24%] flex items-center justify-center ${layer === 'front' ? 'z-20' : 'z-0'}`}
-      style={{ transform: 'translateY(5%) rotate(-8deg) scaleY(0.34)' }}
-    >
-      {layer === 'back' && (
-        <motion.svg
-          viewBox="0 0 520 520"
-          className="absolute h-full w-full overflow-visible"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 24, repeat: Infinity, ease: 'linear' }}
-        >
-          <defs>
-            <path id="portal-ring-back" d="M260,260 m-216,0 a216,216 0 1,1 432,0 a216,216 0 1,1 -432,0" />
-            <filter id="portal-text-glow">
-              <feGaussianBlur stdDeviation="2.6" result="glow" />
-              <feMerge>
-                <feMergeNode in="glow" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <circle cx="260" cy="260" r="216" fill="none" stroke="rgba(196,236,255,0.18)" strokeWidth="2" />
-          <text
-            fill="rgba(223,248,255,0.34)"
-            filter="url(#portal-text-glow)"
-            fontSize="17"
-            fontWeight="700"
-            letterSpacing="8"
-          >
-            <textPath href="#portal-ring-back" startOffset="0%">
-              DELIX COSMIC ALBUM  DRIFT THROUGH THE ARCHIVE  RUNAWAY RABBIT
-            </textPath>
-          </text>
-        </motion.svg>
-      )}
-
-      {layer === 'front' && (
-        <motion.svg
-          viewBox="0 0 520 520"
-          className="absolute h-full w-full overflow-visible"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 24, repeat: Infinity, ease: 'linear' }}
-        >
-          <defs>
-            <path id="portal-ring-front" d="M44,260 a216,216 0 0,0 432,0" />
-            <filter id="portal-front-glow">
-              <feGaussianBlur stdDeviation="2.8" result="glow" />
-              <feMerge>
-                <feMergeNode in="glow" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <path
-            d="M44,260 a216,216 0 0,0 432,0"
-            fill="none"
-            stroke="rgba(215,248,255,0.46)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            filter="url(#portal-front-glow)"
-          />
-          <text fill="rgba(240,252,255,0.88)" filter="url(#portal-front-glow)" fontSize="17" fontWeight="800" letterSpacing="8">
-            <textPath href="#portal-ring-front" startOffset="3%">
-              DELIX COSMIC ALBUM  RUNAWAY RABBIT  DRIFT THROUGH THE ARCHIVE
-            </textPath>
-          </text>
-        </motion.svg>
-      )}
-    </div>
-  );
-}
 
 // Keeps the WebGL portal model's render loop paused whenever the voyage has
 // scrolled past the portal phase, instead of leaving it rendering every frame
@@ -370,20 +296,96 @@ function VoyageToolBeacon({
   );
 }
 
+function SignalToolButton({
+  tool,
+  index,
+  position,
+  collected,
+  focused,
+  hiddenForChase,
+  onClick,
+}: {
+  tool: SignalTool;
+  index: number;
+  position?: { left: string; top: string };
+  collected: boolean;
+  focused: boolean;
+  // True while the recovery mini-game's wandering pocket is currently
+  // standing in for this tool, so the static button ducks out of the way.
+  hiddenForChase: boolean;
+  onClick: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  // Drives the intro reveal off useInView + a single `animate` prop (rather
+  // than initial/whileInView) so the same prop can also own the
+  // collected-driven fade-out below — mixing whileInView with animate on the
+  // same values is ambiguous about which one wins once collected changes.
+  const isInView = useInView(ref, { once: true, amount: 0.35 });
+  const hidden = collected || hiddenForChase;
+
+  return (
+    <motion.button
+      id={`signal-tool-${tool.id}`}
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      disabled={hidden}
+      aria-label={collected ? `${tool.name} already collected` : `Scan ${tool.name}`}
+      className={`absolute z-20 grid w-[140px] -translate-x-1/2 -translate-y-1/2 justify-items-center text-center group ${hidden ? 'pointer-events-none' : ''}`}
+      style={{ left: position?.left, top: position?.top }}
+      animate={{
+        opacity: !isInView ? 0 : hidden ? 0 : 1,
+        scale: !isInView ? 0.82 : collected ? 0.5 : 1,
+      }}
+      transition={
+        !isInView
+          ? { duration: 0.65, delay: index * 0.1 } // staggered first reveal
+          : { duration: collected ? 0.45 : 0.25, ease: hidden ? 'easeIn' : 'easeOut' } // chase hide/show or collected fade — no stagger
+      }
+    >
+      <span className={`relative grid h-24 w-24 place-items-center rounded-full border bg-black/68 backdrop-blur-xl transition duration-300 ${
+        focused
+          ? 'border-cyan-100/38 shadow-[0_0_60px_rgba(165,231,255,0.18)]'
+          : 'border-white/12 group-hover:border-white/28'
+      }`}>
+        <span className="absolute inset-[-18%] rounded-full border border-white/8" />
+        <img src={tool.image} alt="" className="h-14 w-14 object-contain" />
+      </span>
+      <span className="mt-3 block rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/46 backdrop-blur-md">
+        {collected ? 'Collected' : 'Signal Tool'}
+      </span>
+      <span className={`mt-2 block max-w-[150px] text-xs font-semibold leading-tight transition ${
+        focused ? 'text-white/86' : 'text-white/38'
+      }`}>
+        {tool.name}
+      </span>
+    </motion.button>
+  );
+}
+
 function PocketRecoveryGame({
   tools,
   checkCollected,
   onCollect,
+  onActiveToolChange,
 }: {
   tools: typeof signalTools;
   checkCollected: (id: number) => boolean;
   onCollect: (toolId: number) => void;
+  // Reports which tool's static button should be hidden because this
+  // instance's wandering pocket is currently standing in for it — driven
+  // through React/props instead of an imperative `btn.style.opacity` DOM
+  // write, since SignalToolButton now also drives its own opacity off
+  // `collected` via framer-motion's `animate`, and the two were fighting
+  // (framer would periodically re-assert opacity:1 and pop the "hidden"
+  // button back into view while its pocket was still being chased).
+  onActiveToolChange?: (id: number | null) => void;
 }) {
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const toolDivRef = useRef<HTMLDivElement>(null);
   // Keep latest callbacks without re-running the effect
-  const cbs = useRef({ tools, checkCollected, onCollect });
-  useEffect(() => { cbs.current = { tools, checkCollected, onCollect }; });
+  const cbs = useRef({ tools, checkCollected, onCollect, onActiveToolChange });
+  useEffect(() => { cbs.current = { tools, checkCollected, onCollect, onActiveToolChange }; });
   // Track collected IDs internally to avoid async state timing issues
   const collectedIds = useRef(new Set(tools.filter(t => checkCollected(t.id)).map(t => t.id)));
 
@@ -445,8 +447,11 @@ function PocketRecoveryGame({
         g.current.closeT  = 0;
         setLabel('All signals recovered');
         if (toolDivRef.current) toolDivRef.current.style.opacity = '0';
+        cbs.current.onActiveToolChange?.(null);
         return;
       }
+
+      cbs.current.onActiveToolChange?.(next.id);
 
       // Find the button for this tool and use its center position
       const btn = document.getElementById(`signal-tool-${next.id}`);
@@ -455,7 +460,6 @@ function PocketRecoveryGame({
         const br = btn.getBoundingClientRect();
         g.current.tx = br.left + br.width  / 2 - canvasRect.left;
         g.current.ty = br.top  + br.height / 2 - canvasRect.top;
-        btn.style.opacity = '0';   // hide — toolDiv takes its place visually
       } else {
         // Fallback to random if button not found
         const m = R + 24;
@@ -562,9 +566,9 @@ function PocketRecoveryGame({
               if (current) {
                 collectedIds.current.add(current.id);
                 cbs.current.onCollect(current.id);
-                // Restore button visibility — now shows "Collected" label
-                const btn = document.getElementById(`signal-tool-${current.id}`);
-                if (btn) btn.style.opacity = '1';
+                // Leave the button hidden — SignalToolButton now fades/shrinks
+                // it away permanently once `collected` is true, instead of
+                // popping back to full opacity.
               }
               s.placed   = true;
               s.successT = 0;
@@ -889,6 +893,14 @@ export default function CosmicVoyage() {
     target: voyageRef,
     offset: ['start start', 'end end'],
   });
+  // Mouse-wheel scrolling delivers position updates in coarse, discrete jumps
+  // (unlike a trackpad's much higher-frequency stream). Feeding that directly
+  // into the portal model's grow/fade animation makes an otherwise-continuous
+  // useTransform curve look like it's snapping between sizes/positions. This
+  // spring re-adds motion between those discrete updates so it eases smoothly
+  // regardless of how chunky the underlying scroll events are. Scoped to the
+  // model only — other scroll-linked elements aren't affected.
+  const smoothVoyageProgress = useSpring(voyageProgress, { stiffness: 260, damping: 32, mass: 0.6 });
   const [selectedLocked, setSelectedLocked] = useState<LockedMission | null>(null);
   const [unlockNotice, setUnlockNotice] = useState<{
     toolName: string;
@@ -902,6 +914,9 @@ export default function CosmicVoyage() {
   } | null>(null);
   const [focusedToolId, setFocusedToolId] = useState(signalTools[0].id);
   const [recoveryToolId, setRecoveryToolId] = useState<number | null>(null);
+  // Which tool's static left-side button should duck out of the way because
+  // a PocketRecoveryGame's wandering pocket is currently standing in for it.
+  const [chasedToolId, setChasedToolId] = useState<number | null>(null);
 
   // Reactively watch collectedTools — most reliable way to trigger the notification
   const prevCollectedRef = useRef<number[]>([]);
@@ -928,14 +943,42 @@ export default function CosmicVoyage() {
   }, [stats.collectedTools]);
 
   const cameraY = useTransform(scrollYProgress, [0, 1], ['0vh', '-24vh']);
-  const modelScale = useTransform(voyageProgress, [0, 0.13, 0.2], [1.14, 0.92, 0.36]);
-  const modelX = useTransform(voyageProgress, [0, 0.13, 0.2], ['0vw', '0vw', '-84vw']);
-  const modelY = useTransform(voyageProgress, [0, 0.13, 0.2], ['16vh', '2vh', '-18vh']);
-  const modelOpacity = useTransform(voyageProgress, [0, 0.15, 0.2], [1, 1, 0]);
-  const orbitOpacity = useTransform(voyageProgress, [0.2, 0.26, 0.92, 1], [0, 0.36, 0.24, 0]);
-  const portalOpacity = useTransform(voyageProgress, [0, 0.08, 0.15], [1, 1, 0]);
-  const planetLayerOpacity = useTransform(voyageProgress, [0.2, 0.22, 0.965, 0.99], [0, 1, 1, 0]);
-  const voyageOpacity = useTransform(voyageProgress, [0, 0.94, 1], [1, 1, 0]);
+  // Deep-space drift: starts small and far off, grows as you scroll until it
+  // overflows the frame, then hands off to the planet-approach phase.
+  //
+  // This grow effect is done with a single CSS `transform: scale()` on the
+  // wrapper — deliberately NOT by animating its width/height (that makes the
+  // R3F canvas inside it resize its actual render target every frame via a
+  // ResizeObserver, which fires a frame or two *after* the CSS change; during
+  // that lag the still-old aspect/resolution briefly renders skewed toward a
+  // corner, which is exactly the transient "runs to the corner, then snaps
+  // back" glitch this was causing). A `scale` transform only magnifies the
+  // already-rendered pixels — the canvas's own layout size never changes, so
+  // there's nothing for a resize observer to react to, and it stays perfectly
+  // in sync with scroll every frame. The wrapper's base size is small enough
+  // that the rock sits well inside it with margin to spare, so once the
+  // scaled-up box exceeds the viewport, its own edges are off-screen and
+  // never show up as a hard clip.
+  const wrapperScale = useTransform(smoothVoyageProgress, [0, 0.15], [1, 6]);
+  const modelOpacity = useTransform(smoothVoyageProgress, [0, 0.15, 0.2], [1, 1, 0]);
+  // Plain vh units (not a percentage) — safe to combine with `scale` on the
+  // same element, since only percentage-based translate offsets have the
+  // stale-reference-size problem described above.
+  const modelY = useTransform(smoothVoyageProgress, [0, 0.15], ['8vh', '0vh']);
+  // These all use the spring-smoothed progress, not the raw scroll value —
+  // see smoothVoyageProgress above. The planets' own flight paths (x/y/scale
+  // in flightPaths, further below) span nearly the whole viewport and were
+  // originally driven by raw voyageProgress directly; a single coarse
+  // mouse-wheel tick could jump the raw progress far enough within a
+  // planet's narrow range window to make it visually teleport across the
+  // screen instead of flying across it, which got much worse on a fast
+  // reverse scroll. Keeping every transform in this phase (opacities,
+  // planets, tool beacons, phase label) on the same smoothed value keeps
+  // them moving together and eases out those jumps instead of snapping.
+  const orbitOpacity = useTransform(smoothVoyageProgress, [0.2, 0.26, 0.92, 1], [0, 0.36, 0.24, 0]);
+  const portalOpacity = useTransform(smoothVoyageProgress, [0, 0.08, 0.15], [1, 1, 0]);
+  const planetLayerOpacity = useTransform(smoothVoyageProgress, [0.2, 0.22, 0.965, 0.99], [0, 1, 1, 0]);
+  const voyageOpacity = useTransform(smoothVoyageProgress, [0, 0.94, 1], [1, 1, 0]);
 
   const songs = useMemo(() => (
     albumData.songs
@@ -1061,25 +1104,18 @@ export default function CosmicVoyage() {
           className="pointer-events-none fixed inset-0 flex h-screen items-center justify-center px-5 pt-24"
           style={{ opacity: voyageOpacity }}
         >
-          <motion.div
-            className="pointer-events-none absolute z-10 h-[44vmin] min-h-64 w-[44vmin] min-w-64"
-            style={{ x: modelX, y: modelY, scale: modelScale, opacity: modelOpacity }}
-          >
-            <div className="absolute inset-8 rounded-full bg-cyan-300/10 blur-3xl" />
+          {/* Centered with CSS Grid (place-items-center) rather than
+              absolute + left/top-50% + -translate-50%, so grid alignment is
+              computed from the child's untransformed layout box and the
+              `scale`/`y` transform below can't disturb it. */}
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
             <motion.div
-              className="absolute inset-0 z-0"
-              style={{ opacity: portalOpacity }}
+              className="h-[44vmin] w-[44vmin] min-h-64 min-w-64"
+              style={{ y: modelY, opacity: modelOpacity, scale: wrapperScale }}
             >
-              <PortalLightRing layer="back" />
+              <Model3DGate progress={smoothVoyageProgress} />
             </motion.div>
-            <Model3DGate progress={voyageProgress} />
-            <motion.div
-              className="absolute inset-0 z-20"
-              style={{ opacity: portalOpacity }}
-            >
-              <PortalLightRing layer="front" />
-            </motion.div>
-          </motion.div>
+          </div>
 
           <motion.div
             className="pointer-events-none absolute inset-0 z-20"
@@ -1101,7 +1137,7 @@ export default function CosmicVoyage() {
                 key={song.id}
                 song={song}
                 index={index}
-                progress={voyageProgress}
+                progress={smoothVoyageProgress}
                 onClick={() => openSong(song)}
               />
             ))}
@@ -1109,7 +1145,7 @@ export default function CosmicVoyage() {
               <VoyageToolBeacon
                 key={tool.id}
                 tool={tool}
-                progress={voyageProgress}
+                progress={smoothVoyageProgress}
                 collected={checkToolCollected(tool.id)}
                 onInspect={() => handleInspectTool(tool)}
               />
@@ -1123,12 +1159,12 @@ export default function CosmicVoyage() {
               <div className="flex justify-between"><span>Signal tools</span><span>{collectedCount}/{signalTools.length}</span></div>
               <div className="flex justify-between"><span>Next key</span><span className="max-w-[92px] truncate text-right">{nextRequiredTool?.name || 'Complete'}</span></div>
               <div className="h-px bg-white/10" />
-              <PhaseLabel progress={voyageProgress} className="text-[10px] uppercase tracking-[0.22em] text-white/32" />
+              <PhaseLabel progress={smoothVoyageProgress} className="text-[10px] uppercase tracking-[0.22em] text-white/32" />
             </div>
           </div>
 
           <div className="pointer-events-none absolute bottom-8 left-1/2 z-30 -translate-x-1/2 text-center">
-            <PhaseLabel progress={voyageProgress} className="text-[10px] uppercase tracking-[0.38em] text-white/36" />
+            <PhaseLabel progress={smoothVoyageProgress} className="text-[10px] uppercase tracking-[0.38em] text-white/36" />
             <div className="mx-auto mt-3 h-10 w-px overflow-hidden bg-white/10">
               <motion.div
                 className="h-5 w-px bg-white/80"
@@ -1161,41 +1197,18 @@ export default function CosmicVoyage() {
           <div className="pointer-events-none absolute left-1/2 top-1/2 h-[46vmin] max-h-[410px] w-[46vmin] max-w-[410px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/10" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(126,155,255,0.12),transparent_38%)]" />
 
-          {signalTools.map((tool, index) => {
-            const collected = checkToolCollected(tool.id);
-
-            return (
-              <motion.button
-                id={`signal-tool-${tool.id}`}
-                key={tool.id}
-                type="button"
-                onClick={() => handleInspectTool(tool)}
-                className="absolute z-20 grid w-[140px] -translate-x-1/2 -translate-y-1/2 justify-items-center text-center group"
-                style={{ left: toolPositions[index]?.left, top: toolPositions[index]?.top }}
-                initial={{ opacity: 0, scale: 0.82 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, amount: 0.35 }}
-                transition={{ duration: 0.65, delay: index * 0.1 }}
-              >
-                <span className={`relative grid h-24 w-24 place-items-center rounded-full border bg-black/68 backdrop-blur-xl transition duration-300 ${
-                  focusedToolId === tool.id
-                    ? 'border-cyan-100/38 shadow-[0_0_60px_rgba(165,231,255,0.18)]'
-                    : 'border-white/12 group-hover:border-white/28'
-                }`}>
-                  <span className="absolute inset-[-18%] rounded-full border border-white/8" />
-                  <img src={tool.image} alt="" className="h-14 w-14 object-contain" />
-                </span>
-                <span className="mt-3 block rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/46 backdrop-blur-md">
-                  {collected ? 'Collected' : 'Signal Tool'}
-                </span>
-                <span className={`mt-2 block max-w-[150px] text-xs font-semibold leading-tight transition ${
-                  focusedToolId === tool.id ? 'text-white/86' : 'text-white/38'
-                }`}>
-                  {tool.name}
-                </span>
-              </motion.button>
-            );
-          })}
+          {signalTools.map((tool, index) => (
+            <SignalToolButton
+              key={tool.id}
+              tool={tool}
+              index={index}
+              position={toolPositions[index]}
+              collected={checkToolCollected(tool.id)}
+              focused={focusedToolId === tool.id}
+              hiddenForChase={chasedToolId === tool.id}
+              onClick={() => handleInspectTool(tool)}
+            />
+          ))}
 
           <PocketRecoveryGame
             tools={signalTools}
@@ -1204,6 +1217,7 @@ export default function CosmicVoyage() {
               const t = signalTools.find((st) => st.id === toolId);
               if (t) handleCollectTool(t);
             }}
+            onActiveToolChange={setChasedToolId}
           />
         </div>
 
@@ -1285,10 +1299,14 @@ export default function CosmicVoyage() {
                     const t = signalTools.find((st) => st.id === toolId);
                     if (t) handleCollectTool(t);
                   }}
+                  onActiveToolChange={setChasedToolId}
                 />
                 <button
                   type="button"
-                  onClick={() => setRecoveryToolId(null)}
+                  onClick={() => {
+                    setRecoveryToolId(null);
+                    setChasedToolId(null);
+                  }}
                   className="mt-3 w-full text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35 transition hover:text-white/70"
                 >
                   Cancel scan

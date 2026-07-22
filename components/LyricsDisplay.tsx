@@ -22,8 +22,6 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
   const [currentLineIndex, setCurrentLineIndex] = useState(-1);
   const [translateY, setTranslateY] = useState(0);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
-  const currentLineRef = useRef<HTMLDivElement>(null);
-  const lyricsRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // 解析LRC格式歌词
   const parseLRC = (lrcText: string): LyricLine[] => {
@@ -71,8 +69,6 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
         setLyrics(parsedLyrics);
         setCurrentLineIndex(-1);
         setTranslateY(0);
-        // 初始化 refs 数组
-        lyricsRefs.current = new Array(parsedLyrics.length).fill(null);
       })
       .catch(error => {
         console.error('Error loading lyrics:', error);
@@ -101,24 +97,30 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
     }
   }, [currentTime, lyrics, currentLineIndex]);
 
-  // 自动滚动到当前歌词行 - 使用 transform 而不是 scrollIntoView
+  // 自动滚动到当前歌词行 - 使用 transform 而不是 scrollIntoView.
+  // Looks the line up in the DOM via its data-line-index attribute at the
+  // moment the effect runs, rather than through a ref populated by an inline
+  // callback ref on each mapped line — that callback ref's identity changes
+  // every render (new arrow function), and empirically React wasn't
+  // reliably re-invoking it just because `currentLineIndex` changed without
+  // the `lyrics` array itself changing, leaving the stored ref stale/null
+  // and the centering offset never computed.
   useEffect(() => {
-    if (currentLineIndex >= 0 && lyricsRefs.current[currentLineIndex] && lyricsContainerRef.current) {
-      requestAnimationFrame(() => {
-        const container = lyricsContainerRef.current;
-        const currentLine = lyricsRefs.current[currentLineIndex];
+    if (currentLineIndex < 0 || !lyricsContainerRef.current) return;
+    requestAnimationFrame(() => {
+      const container = lyricsContainerRef.current;
+      const currentLine = container?.querySelector<HTMLElement>(`[data-line-index="${currentLineIndex}"]`);
 
-        if (container && currentLine) {
-          const containerHeight = container.clientHeight;
-          const lineOffsetTop = currentLine.offsetTop;
-          const lineHeight = currentLine.clientHeight;
+      if (container && currentLine) {
+        const containerHeight = container.clientHeight;
+        const lineOffsetTop = currentLine.offsetTop;
+        const lineHeight = currentLine.clientHeight;
 
-          // 计算需要的偏移量，让当前行居中
-          const offset = containerHeight / 2 - lineOffsetTop - lineHeight / 2;
-          setTranslateY(offset);
-        }
-      });
-    }
+        // 计算需要的偏移量，让当前行居中
+        const offset = containerHeight / 2 - lineOffsetTop - lineHeight / 2;
+        setTranslateY(offset);
+      }
+    });
   }, [currentLineIndex]);
 
   // 点击歌词行跳转到对应时间
@@ -156,10 +158,7 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
           return (
             <motion.div
               key={`${line.time}-${index}`}
-              ref={(el) => {
-                lyricsRefs.current[index] = el;
-                if (isCurrent) currentLineRef.current = el;
-              }}
+              data-line-index={index}
               onClick={() => handleLineClick(line.time)}
               className={`
                 relative py-3 px-4 my-2 rounded-lg cursor-pointer transition-all duration-300

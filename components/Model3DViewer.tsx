@@ -1,28 +1,53 @@
 'use client';
 
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Environment, Float } from '@react-three/drei';
-import { Suspense, useRef, useEffect, useState } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useGLTF, Environment, Float } from '@react-three/drei';
+import { Suspense, useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 
+const BASE_SCALE = 1.5;
+
 // 3D模型组件
-function Model3DObject({ modelPath }: { modelPath: string }) {
+function Model3DObject({
+  modelPath,
+  autoRotateSpeed,
+}: {
+  modelPath: string;
+  autoRotateSpeed: number;
+}) {
   const { scene } = useGLTF(modelPath);
   const modelRef = useRef<THREE.Object3D>(null);
 
-  // 复制场景以避免共享问题
-  const clonedScene = scene.clone();
+  // Re-centers the cloned mesh on its own bounding-box center rather than
+  // whatever pivot the GLB happened to be exported with. Previously we spun
+  // the *camera* around the scene origin (OrbitControls autoRotate); if the
+  // mesh's visual bulk isn't centered on that origin, orbiting around it
+  // makes the object appear to swing off toward one corner and back as it
+  // rotates. Rotating the (now re-centered) object itself in place, with a
+  // fixed camera, keeps the framing stable regardless of the source pivot.
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone();
+    const box = new THREE.Box3().setFromObject(clone);
+    const center = box.getCenter(new THREE.Vector3());
+    clone.position.sub(center);
+    return clone;
+  }, [scene]);
+
+  useFrame((_, delta) => {
+    if (!modelRef.current) return;
+    modelRef.current.rotation.y += delta * autoRotateSpeed * 0.3;
+  });
 
   return (
     <Float
       speed={1.2}
-      rotationIntensity={0.3}
-      floatIntensity={0.2}
+      rotationIntensity={0}
+      floatIntensity={0}
     >
-      <primitive 
+      <primitive
         ref={modelRef}
-        object={clonedScene} 
-        scale={[1.5, 1.5, 1.5]}
+        object={clonedScene}
+        scale={[BASE_SCALE, BASE_SCALE, BASE_SCALE]}
         position={[0, 0, 0]}
         rotation={[0, 0, 0]}
       />
@@ -85,7 +110,7 @@ function Model3DViewer({
     <div
       className={`w-full h-full ${className}`}
       style={{
-        pointerEvents: isTouchDevice ? 'none' : 'auto',
+        pointerEvents: 'none',
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none'
@@ -93,6 +118,19 @@ function Model3DViewer({
     >
       <Canvas
         frameloop={active ? 'always' : 'never'}
+        // R3F sizes its WebGL drawing buffer by calling getBoundingClientRect()
+        // on this wrapper (via react-use-measure), which reports the box
+        // *after* CSS transforms — including the ancestor `scale()` the voyage
+        // page uses to grow this model up to 6x. Without this override, the
+        // canvas kept resizing its actual render target to match the scaled-up
+        // size (measured up to ~4250x4250 physical pixels at scale 6 with
+        // antialiasing on), which is both wasteful and appears to blow past a
+        // GPU/driver limit and render blank at the largest sizes — exactly the
+        // "rock disappears once it's big" bug. `offsetSize: true` makes it use
+        // offsetWidth/offsetHeight instead, which are untouched by transforms,
+        // so the canvas's real resolution stays fixed and the ancestor scale
+        // purely magnifies the already-rendered pixels as intended.
+        resize={{ offsetSize: true }}
         camera={{
           position: [0, 0, 4],
           fov: 45,
@@ -101,7 +139,7 @@ function Model3DViewer({
         }}
         style={{
           background: 'transparent',
-          pointerEvents: isTouchDevice ? 'none' : 'auto',
+          pointerEvents: 'none',
           touchAction: 'none'
         }}
         dpr={[1, 2]}
@@ -126,24 +164,10 @@ function Model3DViewer({
         {/* 环境贴图 - 夜晚环境 */}
         <Environment preset="night" />
         
-        {/* 3D模型 */}
+        {/* 3D模型 - 物体自身缓慢自转，相机固定不动，纯装饰性，无需交互控制器 */}
         <Suspense fallback={<LoadingFallback />}>
-          <Model3DObject modelPath={modelPath} />
+          <Model3DObject modelPath={modelPath} autoRotateSpeed={autoRotate ? autoRotateSpeed : 0} />
         </Suspense>
-        
-        {/* 自动旋转控制器 - 移动端禁用手动旋转 */}
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          enableRotate={!isTouchDevice} // 移动端禁用手动旋转
-          autoRotate={autoRotate}
-          autoRotateSpeed={autoRotateSpeed}
-          minDistance={3}
-          maxDistance={6}
-          minPolarAngle={Math.PI * 0.3}
-          maxPolarAngle={Math.PI * 0.7}
-          touches={{ ONE: 0, TWO: 0 }} // 禁用触摸控制
-        />
       </Canvas>
     </div>
   );

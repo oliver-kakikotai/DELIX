@@ -8,11 +8,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-syne);
-}
-
-body {
-  font-family: var(--font-syne), system-ui, sans-serif;
+  --font-sans: var(--font-archivo);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -299,12 +295,13 @@ body {
   opacity: 1;
 }
 
-/* 重置所有默认边距和内边距 */
-* {
-  margin: 0;
-  /* padding: 0; */
-  box-sizing: border-box;
-}
+/* Tailwind's own preflight (in @layer base) already resets margin and
+   box-sizing on every element. An unscoped `* { margin: 0 }` rule here sits
+   outside any CSS cascade layer, and unlayered rules always beat layered
+   ones regardless of specificity — so this was silently cancelling out
+   every `mx-auto`/margin-* utility site-wide (e.g. the lyrics panel on the
+   song page never actually centered). Removed in favor of Tailwind's own
+   layered reset. */
 
 html {
   margin: 0;
@@ -328,7 +325,7 @@ body {
   touch-action: auto;
   background: #000000;
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-archivo), system-ui, sans-serif;
 }
 
 /* 确保根容器没有边距 */
