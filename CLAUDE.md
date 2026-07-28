@@ -4,102 +4,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **Runaway Rabbit IP showcase website** - a trilingual (English/Chinese/Japanese) portfolio site for an original character IP. Built with Next.js 15 + TypeScript, featuring space-themed visuals, 3D animations with Three.js, and comprehensive internationalization.
+**DELIX** is an interactive album-archive site for the Runaway Rabbit IP, built with Next.js 15 (App Router) + TypeScript. The homepage (`CosmicVoyage`) is a single scroll-driven experience: songs appear as planets you fly past, locked songs are unlocked by collecting "signal tools" via a canvas chase mini-game, and each song has its own lyrics/detail page.
 
 ## Development Commands
 
 ```bash
-# Development server with Turbopack (faster builds)
-npm run dev
-
-# Production build
-npm run build
-
-# Start production server
-npm run start
-
-# Lint code
-npm run lint
-
-# Type checking
-npx tsc --noEmit
+npm run dev          # dev server (Turbopack)
+npm run build         # production build
+npm run start         # start production server
+npm run lint          # ESLint (next/core-web-vitals + next/typescript)
+npx tsc --noEmit      # type check
+npm test              # run tests once (Vitest)
+npm run test:watch    # Vitest watch mode
 ```
 
 **Development URL:** http://localhost:3000
 
-## Architecture & Key Concepts
+CI (`.github/workflows/ci.yml`) runs `tsc → lint → test → build` on every push/PR to `main`.
 
-### App Router Structure
-- Uses Next.js App Router (not Pages Router)
-- Root layout in `app/layout.tsx` with comprehensive SEO metadata
-- Main page in `app/page.tsx` with elaborate space/galaxy background
+## Architecture
 
-### Internationalization System
-- **Core:** `contexts/LanguageContext.tsx` - comprehensive i18n system
-- **Languages:** English (`en`), Chinese Simplified (`zh`), Japanese (`ja`)
-- **Storage:** Client-side language persistence via localStorage
-- **Usage:** Import `useLanguage()` hook, access translations via `t` object
-- **40+ translation keys** covering all UI elements
+### Routes
+- `app/page.tsx` — homepage: `Navigation` + `CosmicVoyage` + `Footer`
+- `app/song/[slug]/page.tsx` — per-song page (lyrics, unlock status), driven by `data/albumData.ts`
+- `app/api/subscribe/route.ts` — email subscribe endpoint; not currently called from any UI (the form/hook that used to call it, `hooks/useEmailSubscription.ts`, isn't wired to a page)
+- `app/layout.tsx` mounts the global providers plus `GlobalAudioPlayer` and `UnlockTracker`, which render on every route
 
-### Component Architecture
+### CosmicVoyage
+`components/CosmicVoyage.tsx` is the homepage's main component; it orchestrates state and layout only. Its pieces live in `components/cosmic-voyage/`:
+- `data.ts` — static data: `signalTools`, `flightPaths`, `starField`, related types
+- `VoyagePlanet.tsx` / `VoyageToolBeacon.tsx` — planets/tools during the flight-through phase
+- `SignalToolButton.tsx` / `PocketRecoveryGame.tsx` — the signal-tools section and its chase mini-game (canvas-based, imperative render loop)
+- `ProgressGates.tsx` — `Model3DGate` (pauses the 3D model's render loop off-phase) and `PhaseLabel`, both isolated so per-frame scroll updates don't re-render the whole tree
 
-**Main Layout Components:**
-- `CompactLayout.tsx` - Primary layout orchestrating all content sections
-- `MainContentCard.tsx` - Hero section with character introduction
-- `CharacterCard.tsx` - Character showcase component
+`components/Planet.tsx` is a generic fallback planet visual, only used when a song has no `planetImage` (currently none — every song in `albumData` sets one).
 
-**Interactive Components:**
-- `RotatingPlanet.tsx` - Three.js 3D planet animation
-- `CubeFlipSection.tsx` - 3D cube interactions
-- `SpaceInteractionSection.tsx` - Space-themed interactions
+### Contexts (all provided in `app/layout.tsx`)
+- `AudioContext` — playback state for `GlobalAudioPlayer`
+- `UnlockContext` — song/tool unlock logic, persisted to `localStorage`; collected tools intentionally reset each session (so the chase mini-game replays) while unlocked songs persist
+- `LanguageContext` — i18n (`en`/`zh`/`ja`), used by `Footer.tsx` and the song page. **There is currently no language-switcher UI** — the context and translations work, but nothing in `Navigation.tsx` lets a user change language yet.
 
-**UI Components:**
-- `Navigation.tsx` - Fixed nav with language switcher
-- `LanguageSwitcher.tsx` - Language selection dropdown
-- `Footer.tsx`, `CookieNotice.tsx`, `StatsCard.tsx`
+### Data
+`data/albumData.ts` defines the album/song list, including each song's `unlockCondition` (`auto`, `manual`, or a still-unused set of types — `listen_previous`, `time_played`, `lyrics_click`, `listen_count` — that `UnlockContext` implements but no current song config uses).
 
-### Styling & Visual Theme
-- **Primary:** Tailwind CSS 4.x with PostCSS
-- **Theme:** Space/galaxy aesthetic with purple cosmic colors
-- **Animations:** Extensive CSS animations and 3D graphics
-- **Fonts:** Geist Sans & Geist Mono optimized via Next.js
-- **Responsive:** Mobile-first design approach
+### Testing
+Vitest + React Testing Library (`vitest.config.ts`, jsdom environment). Tests focus on logic, not animation/visual rendering:
+- `data/albumData.test.ts` — data integrity, helper functions
+- `contexts/UnlockContext.test.tsx` — unlock/collect logic via `renderHook`
 
-### Asset Management
-- **Images:** Located in `public/images/` (18 character artwork files)
-- **Format:** PNG/JPG character illustrations and artwork
-- **Naming:** IMG_XXXX format from original photo imports
+### Images
+All images go through `next/image`. Large/variable-size visuals use `fill` + `sizes`; fixed-size icons pass explicit `width`/`height`. Don't reintroduce raw `<img>` tags.
 
 ## Technology Stack
 
-- **Framework:** Next.js 15.3.3 with App Router
-- **Language:** TypeScript 5.x with strict mode
+- **Framework:** Next.js 15.5.x, App Router
+- **Language:** TypeScript 5.x, strict mode, `@/*` path alias to repo root
 - **Styling:** Tailwind CSS 4.x
-- **3D Graphics:** Three.js 0.178.x
-- **Fonts:** Next.js font optimization (Geist family)
-- **Build Tool:** Turbopack for development
+- **3D:** `@react-three/fiber` + `@react-three/drei` (see `Model3DViewer.tsx`)
+- **Animation:** Framer Motion (scroll-linked transforms throughout `CosmicVoyage`), GSAP, tsparticles
+- **Testing:** Vitest, @testing-library/react
+- **Lint:** ESLint flat config (`eslint.config.mjs`)
 
-## Development Guidelines
+## Notes for future work
 
-### TypeScript Configuration
-- Strict mode enabled with comprehensive type checking
-- Path alias `@/*` maps to root directory
-- ES2017 target with ESNext modules
-
-### Component Patterns
-- All components use TypeScript with proper type definitions
-- Client components marked with `'use client'` directive
-- Internationalization via `useLanguage()` hook
-- State management through React hooks and context
-
-### File Structure Conventions
-- Components in `/components/` directory
-- Contexts in `/contexts/` directory  
-- Static assets in `/public/images/`
-- Global styles in `app/globals.css`
-
-### SEO & Metadata
-- Comprehensive multilingual metadata in `app/layout.tsx`
-- OpenGraph and Twitter card optimization
-- Language-specific alternate links for SEO
-- Character IP focused keywords and descriptions
+- `Navigation.tsx` needs a language switcher hooked up to `LanguageContext` if trilingual support is meant to be user-facing.
+- `app/api/subscribe/route.ts` and `hooks/useEmailSubscription.ts` are currently orphaned (no caller) — either wire them up or remove them.

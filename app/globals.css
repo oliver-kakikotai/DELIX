@@ -1382,25 +1382,6 @@ html {
   .planet-strip { animation: none !important; transform: translateX(0%) !important; }
 }
 
-/* ── Planet pattern self-scroll: [pattern | pattern | pattern] strip.
-   Base layer (planet root1.png) never moves. Panel 1 and panel 3 are the
-   same image, so the loop restarts on an identical frame (no jump).
-   planetpattern.PNG isn't a tileable texture, so there is one visible
-   seam per lap where panel 1 meets panel 2. ── */
-.planet-pattern-strip {
-  animation: planet-pattern-scroll 36s linear infinite;
-  will-change: transform;
-}
-
-@keyframes planet-pattern-scroll {
-  from { transform: translateX(0%); }
-  to   { transform: translateX(-66.6667%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .planet-pattern-strip { animation: none !important; transform: translateX(0%) !important; }
-}
-
 /* 导航栏流星效果 */
 @keyframes meteor {
   0% {
@@ -1427,4 +1408,27 @@ html {
   51%, 100% {
     opacity: 0;
   }
+}
+
+/* Nav flight-console reveal: a single continuous shape, not two separate
+   pieces handing off to each other. 0-35% forms the thin acid line at 1/3
+   page width (height stays collapsed); 35-100% thickens that same line
+   into the full-width panel. Reversed for closing so it visibly deflates
+   back into the line before shrinking away.
+   Uses `transform: scaleX` (GPU-composited) instead of animating `width`
+   directly — animating `width` forces a browser layout recalc on every
+   frame, which was dropping frames on the close direction and reading as
+   a jump/flash right before the panel disappeared instead of a smooth
+   shrink. The element stays full-width in the layout at all times; only
+   its rendered scale changes. */
+@keyframes nav-panel-open {
+  0% { transform: scaleX(0); clip-path: inset(0 0 100% 0); }
+  35% { transform: scaleX(0.333334); clip-path: inset(0 0 100% 0); }
+  100% { transform: scaleX(1); clip-path: inset(0 0 0% 0); }
+}
+
+@keyframes nav-panel-close {
+  0% { transform: scaleX(1); clip-path: inset(0 0 0% 0); }
+  65% { transform: scaleX(0.333334); clip-path: inset(0 0 100% 0); }
+  100% { transform: scaleX(0); clip-path: inset(0 0 100% 0); }
 }

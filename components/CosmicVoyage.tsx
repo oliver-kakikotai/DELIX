@@ -1,887 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, MotionValue, useInView, useMotionValueEvent, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { albumData } from '@/data/albumData';
 import { useUnlock } from '@/contexts/UnlockContext';
-import Model3DViewer from './Model3DViewer';
-import Planet from './Planet';
-
-const starField = Array.from({ length: 96 }, (_, i) => ({
-  left: (i * 47 + 11) % 100,
-  top: (i * 83 + 19) % 100,
-  size: 1 + ((i * 13) % 3),
-  opacity: 0.22 + ((i * 17) % 55) / 100,
-  delay: ((i * 29) % 80) / 10,
-}));
-
-const flightPaths = [
-  {
-    x: ['-72vw', '-42vw', '-30vw', '-30vw', '-74vw'],
-    y: ['-46vh', '-18vh', '0vh', '0vh', '46vh'],
-    scale: [0.06, 0.86, 3.28, 3.28, 0.12],
-    range: [0.22, 0.255, 0.29, 0.34, 0.37],
-    infoPlacement: 'right',
-  },
-  {
-    x: ['76vw', '42vw', '31vw', '31vw', '76vw'],
-    y: ['-42vh', '-16vh', '-1vh', '-1vh', '40vh'],
-    scale: [0.06, 0.78, 3.12, 3.12, 0.12],
-    range: [0.38, 0.415, 0.45, 0.5, 0.53],
-    infoPlacement: 'left',
-  },
-  {
-    x: ['-54vw', '-24vw', '-2vw', '-2vw', '58vw'],
-    y: ['58vh', '26vh', '4vh', '4vh', '-42vh'],
-    scale: [0.06, 0.9, 3.36, 3.36, 0.14],
-    range: [0.54, 0.575, 0.61, 0.66, 0.69],
-    infoPlacement: 'right',
-  },
-  {
-    x: ['78vw', '38vw', '24vw', '24vw', '-48vw'],
-    y: ['44vh', '17vh', '0vh', '0vh', '-38vh'],
-    scale: [0.06, 0.82, 3.18, 3.18, 0.12],
-    range: [0.7, 0.735, 0.77, 0.82, 0.85],
-    infoPlacement: 'left',
-  },
-  {
-    x: ['8vw', '2vw', '-20vw', '-20vw', '-118vw'],
-    y: ['-64vh', '-24vh', '0vh', '0vh', '72vh'],
-    scale: [0.05, 0.76, 3.05, 3.05, 0.04],
-    range: [0.86, 0.895, 0.915, 0.94, 0.965],
-    infoPlacement: 'right',
-  },
-];
-
-type VoyageSong = (typeof albumData.songs)[number] & {
-  unlocked: boolean;
-  path: (typeof flightPaths)[number];
-};
-
-type LockedMission = {
-  title: string;
-  toolName: string;
-  clue: string;
-};
-
-const missionPrinciples = [
-  {
-    label: '01 / ALBUM WORLD',
-    title: 'Songs are planets',
-    text: 'Every DELIX track is treated as a place in orbit, not a flat item in a list.',
-  },
-  {
-    label: '02 / SIGNAL TOOLS',
-    title: 'Locked songs need keys',
-    text: 'Hidden tracks open when the listener collects the matching signal tool.',
-  },
-  {
-    label: '03 / ARCHIVE MEMORY',
-    title: 'The IP is discovered in pieces',
-    text: 'Lyrics, tools, visual fragments, and song pages build the Runaway Rabbit universe over time.',
-  },
-];
-
-// Keeps the WebGL portal model's render loop paused whenever the voyage has
-// scrolled past the portal phase, instead of leaving it rendering every frame
-// for the whole 560vh scroll journey. Isolated in its own component so the
-// per-frame scroll updates only re-render this small gate, not all of
-// CosmicVoyage.
-function Model3DGate({ progress }: { progress: MotionValue<number> }) {
-  const [active, setActive] = useState(true);
-  useMotionValueEvent(progress, 'change', (latest) => {
-    const next = latest <= 0.22;
-    setActive((prev) => (prev === next ? prev : next));
-  });
-  return <Model3DViewer modelPath="/models/hitem3d.glb" className="relative z-10" autoRotateSpeed={1.1} active={active} />;
-}
-
-// Same isolation trick for the phase label — it used to be top-level state,
-// so every phase change re-rendered the entire CosmicVoyage tree.
-function PhaseLabel({ progress, className }: { progress: MotionValue<number>; className: string }) {
-  const [phase, setPhase] = useState('PORTAL');
-  useMotionValueEvent(progress, 'change', (latest) => {
-    const next = latest < 0.14 ? 'PORTAL' : latest < 0.92 ? 'PLANET APPROACH' : latest < 1 ? 'EXIT VECTOR' : 'ARCHIVE';
-    setPhase((prev) => (prev === next ? prev : next));
-  });
-  return <div className={className}>{phase}</div>;
-}
-
-function VoyagePlanet({
-  song,
-  index,
-  progress,
-  onClick,
-}: {
-  song: VoyageSong;
-  index: number;
-  progress: MotionValue<number>;
-  onClick: () => void;
-}) {
-  const holdStart = song.path.range[2];
-  const holdEnd = song.path.range[3];
-  const holdSpan = holdEnd - holdStart;
-  const infoIn = holdStart + holdSpan * 0.18;
-  const infoOut = holdEnd - holdSpan * 0.18;
-  // The fixed, backdrop-blurred info card is expensive to keep painting on
-  // every scroll frame (backdrop-filter re-samples the whole screen behind
-  // it). Only mount it while this song's window is anywhere near active, so
-  // a fast scroll isn't recomputing blur for all 5 songs' cards at once.
-  const [isNear, setIsNear] = useState(false);
-  useMotionValueEvent(progress, 'change', (latest) => {
-    const next = latest >= song.path.range[0] - 0.02 && latest <= song.path.range[4] + 0.02;
-    setIsNear((prev) => (prev === next ? prev : next));
-  });
-  const x = useTransform(progress, song.path.range, song.path.x);
-  const y = useTransform(progress, song.path.range, song.path.y);
-  const planetScale = useTransform(progress, song.path.range, song.path.scale);
-  const planetOpacity = useTransform(
-    progress,
-    [song.path.range[0], song.path.range[1], song.path.range[3], song.path.range[4]],
-    [0, 1, 1, 0]
-  );
-  const infoOpacity = useTransform(
-    progress,
-    [holdStart, infoIn, infoOut, holdEnd],
-    [0, 1, 1, 0]
-  );
-  const infoY = useTransform(
-    progress,
-    [holdStart, infoIn, infoOut, holdEnd],
-    ['28vh', '0vh', '0vh', '-34vh']
-  );
-  const depthGlow = useTransform(progress, song.path.range, [0, 0.12, 0.28, 0.28, 0]);
-  const infoPlacementClass = song.path.infoPlacement === 'left'
-    ? 'left-[7vw]'
-    : 'right-[7vw]';
-
-  return (
-    <>
-      <motion.button
-        type="button"
-        onClick={onClick}
-        aria-label={song.unlocked ? `Open ${song.title}` : `${song.title} is locked`}
-        className="pointer-events-auto absolute left-1/2 top-1/2 z-20 grid h-[28vmin] min-h-40 w-[28vmin] min-w-40 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-center"
-        style={{ x, y, scale: planetScale, opacity: planetOpacity }}
-      >
-        <motion.span
-          className="absolute h-[30vmin] w-[30vmin] rounded-full"
-          style={{
-            opacity: depthGlow,
-            background: `radial-gradient(circle, ${song.color || '#ffffff'}44, transparent 72%)`,
-            filter: 'blur(34px)',
-          }}
-        />
-        <motion.span
-          className="relative grid h-full w-full overflow-hidden rounded-full"
-        >
-          {song.planetImage ? (
-            <img
-              src={song.planetImage}
-              alt={song.title}
-              className="h-full w-full scale-[1.055] rounded-full object-cover"
-            />
-          ) : (
-            <Planet alt={song.title} className="h-full w-full" />
-          )}
-        </motion.span>
-      </motion.button>
-
-      {isNear && (
-        <motion.button
-          type="button"
-          onClick={onClick}
-          aria-label={song.unlocked ? `Open ${song.title}` : `${song.title} is locked`}
-          className={`pointer-events-auto fixed bottom-[12vh] z-40 w-[min(42vw,480px)] rounded-2xl border border-white/18 bg-white/[0.075] px-6 py-5 text-left shadow-[0_20px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl ${infoPlacementClass}`}
-          style={{ y: infoY, opacity: infoOpacity }}
-        >
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.34em] text-white/58">
-            {song.unlocked ? 'UNLOCKED SIGNAL' : 'LOCKED SIGNAL'}
-          </p>
-          <h2 className="text-3xl font-black leading-none text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.38)] md:text-5xl">{song.title}</h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-white/72">
-            {song.intro || song.description?.en || 'A passing world in the DELIX archive.'}
-          </p>
-        </motion.button>
-      )}
-    </>
-  );
-}
-
-const signalTools = [
-  {
-    id: 5,
-    songId: 1,
-    name: 'COSMIC AMPLIFIER',
-    unlocksSong: 'Tomorrow',
-    image: '/images/egg.png',
-    clue: 'Recovered in the final transmission after the first orbit pass.',
-    range: [0.345, 0.365, 0.385],
-    x: ['66vw', '52vw', '36vw'],
-    y: ['28vh', '6vh', '-18vh'],
-  },
-  {
-    id: 1,
-    songId: 2,
-    name: 'STELLAR NAVIGATOR',
-    unlocksSong: 'The Real Reason',
-    image: '/images/NS.png',
-    clue: 'Found in the navigation log where the route first breaks open.',
-    range: [0.505, 0.525, 0.55],
-    x: ['-62vw', '-48vw', '-28vw'],
-    y: ['24vh', '4vh', '-22vh'],
-  },
-  {
-    id: 3,
-    songId: 4,
-    name: 'TEMPORAL DECODER',
-    unlocksSong: 'Salmon and Potatoes',
-    image: '/images/stone.png',
-    clue: 'Buried in a memory fragment from the archive corridor.',
-    range: [0.665, 0.685, 0.71],
-    x: ['58vw', '42vw', '24vw'],
-    y: ['-24vh', '-2vh', '20vh'],
-  },
-  {
-    id: 4,
-    songId: 5,
-    name: 'ASCENSION CORE',
-    unlocksSong: 'The Ascension',
-    image: '/images/diamond.png',
-    clue: 'Held at the far edge of the ship log, close to the exit vector.',
-    range: [0.825, 0.845, 0.87],
-    x: ['-56vw', '-36vw', '-18vw'],
-    y: ['-28vh', '-4vh', '24vh'],
-  },
-];
-
-type SignalTool = (typeof signalTools)[number];
-
-function VoyageToolBeacon({
-  tool,
-  progress,
-  collected,
-  onInspect,
-}: {
-  tool: SignalTool;
-  progress: MotionValue<number>;
-  collected: boolean;
-  onInspect: () => void;
-}) {
-  const x = useTransform(progress, tool.range, tool.x);
-  const y = useTransform(progress, tool.range, tool.y);
-  const opacity = useTransform(progress, tool.range, collected ? [0, 0, 0] : [0, 1, 0]);
-  const scale = useTransform(progress, tool.range, [0.62, 1, 0.62]);
-  const [isNear, setIsNear] = useState(false);
-  useMotionValueEvent(progress, 'change', (latest) => {
-    const next = latest >= tool.range[0] - 0.02 && latest <= tool.range[2] + 0.02;
-    setIsNear((prev) => (prev === next ? prev : next));
-  });
-
-  if (!isNear) return null;
-
-  return (
-    <motion.button
-      type="button"
-      onClick={onInspect}
-      aria-label={`Scan ${tool.name}`}
-      className="pointer-events-auto absolute left-1/2 top-1/2 z-40 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-cyan-100/18 bg-black/50 shadow-[0_0_42px_rgba(165,231,255,0.18)] backdrop-blur-xl"
-      style={{ x, y, opacity, scale }}
-    >
-      <span className="absolute inset-[-22%] rounded-full border border-cyan-100/12" />
-      <img src={tool.image} alt="" className="h-14 w-14 object-contain" />
-      <span className="sr-only">{tool.name}</span>
-    </motion.button>
-  );
-}
-
-function SignalToolButton({
-  tool,
-  index,
-  position,
-  collected,
-  focused,
-  hiddenForChase,
-  onClick,
-}: {
-  tool: SignalTool;
-  index: number;
-  position?: { left: string; top: string };
-  collected: boolean;
-  focused: boolean;
-  // True while the recovery mini-game's wandering pocket is currently
-  // standing in for this tool, so the static button ducks out of the way.
-  hiddenForChase: boolean;
-  onClick: () => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  // Drives the intro reveal off useInView + a single `animate` prop (rather
-  // than initial/whileInView) so the same prop can also own the
-  // collected-driven fade-out below — mixing whileInView with animate on the
-  // same values is ambiguous about which one wins once collected changes.
-  const isInView = useInView(ref, { once: true, amount: 0.35 });
-  const hidden = collected || hiddenForChase;
-
-  return (
-    <motion.button
-      id={`signal-tool-${tool.id}`}
-      ref={ref}
-      type="button"
-      onClick={onClick}
-      disabled={hidden}
-      aria-label={collected ? `${tool.name} already collected` : `Scan ${tool.name}`}
-      className={`absolute z-20 grid w-[140px] -translate-x-1/2 -translate-y-1/2 justify-items-center text-center group ${hidden ? 'pointer-events-none' : ''}`}
-      style={{ left: position?.left, top: position?.top }}
-      animate={{
-        opacity: !isInView ? 0 : hidden ? 0 : 1,
-        scale: !isInView ? 0.82 : collected ? 0.5 : 1,
-      }}
-      transition={
-        !isInView
-          ? { duration: 0.65, delay: index * 0.1 } // staggered first reveal
-          : { duration: collected ? 0.45 : 0.25, ease: hidden ? 'easeIn' : 'easeOut' } // chase hide/show or collected fade — no stagger
-      }
-    >
-      <span className={`relative grid h-24 w-24 place-items-center rounded-full border bg-black/68 backdrop-blur-xl transition duration-300 ${
-        focused
-          ? 'border-cyan-100/38 shadow-[0_0_60px_rgba(165,231,255,0.18)]'
-          : 'border-white/12 group-hover:border-white/28'
-      }`}>
-        <span className="absolute inset-[-18%] rounded-full border border-white/8" />
-        <img src={tool.image} alt="" className="h-14 w-14 object-contain" />
-      </span>
-      <span className="mt-3 block rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/46 backdrop-blur-md">
-        {collected ? 'Collected' : 'Signal Tool'}
-      </span>
-      <span className={`mt-2 block max-w-[150px] text-xs font-semibold leading-tight transition ${
-        focused ? 'text-white/86' : 'text-white/38'
-      }`}>
-        {tool.name}
-      </span>
-    </motion.button>
-  );
-}
-
-function PocketRecoveryGame({
-  tools,
-  checkCollected,
-  onCollect,
-  onActiveToolChange,
-}: {
-  tools: typeof signalTools;
-  checkCollected: (id: number) => boolean;
-  onCollect: (toolId: number) => void;
-  // Reports which tool's static button should be hidden because this
-  // instance's wandering pocket is currently standing in for it — driven
-  // through React/props instead of an imperative `btn.style.opacity` DOM
-  // write, since SignalToolButton now also drives its own opacity off
-  // `collected` via framer-motion's `animate`, and the two were fighting
-  // (framer would periodically re-assert opacity:1 and pop the "hidden"
-  // button back into view while its pocket was still being chased).
-  onActiveToolChange?: (id: number | null) => void;
-}) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null);
-  const toolDivRef = useRef<HTMLDivElement>(null);
-  // Keep latest callbacks without re-running the effect
-  const cbs = useRef({ tools, checkCollected, onCollect, onActiveToolChange });
-  useEffect(() => { cbs.current = { tools, checkCollected, onCollect, onActiveToolChange }; });
-  // Track collected IDs internally to avoid async state timing issues
-  const collectedIds = useRef(new Set(tools.filter(t => checkCollected(t.id)).map(t => t.id)));
-
-  const g = useRef({
-    px: 0, py: 0,
-    tx: 0, ty: 0,
-    phase:       Math.random() * Math.PI * 2,
-    pressure:    0,
-    status:      'roaming',
-    placed:      false,   // current tool just placed into pocket
-    successT:    -1,      // 0→1: success glow animation
-    needsAdvance: false,  // flag: switch to next tool after success
-    allDone:     false,   // all 4 tools placed
-    closeT:      -1,      // 0→1: pocket close animation
-    shake:       0,
-    shakeScale:  1,
-    initialized: false,
-  });
-
-  const [label, setLabel]       = useState('Chase the pocket');
-  const [pressure, setPressure] = useState(0);
-  const [toolImg, setToolImg]   = useState('');
-
-  const R      = 32;
-  const FLEE   = 160;
-  const MARGIN = 58;
-  const CAP    = R * 2 + 14;
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const fit = () => {
-      const r = canvas.getBoundingClientRect();
-      if (canvas.width !== r.width || canvas.height !== r.height) {
-        canvas.width  = r.width;
-        canvas.height = r.height;
-      }
-    };
-    fit();
-
-    const rr = (x: number, y: number, w: number, h: number, r: number) => {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y,     x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x,     y + h, r);
-      ctx.arcTo(x,     y + h, x,     y,     r);
-      ctx.arcTo(x,     y,     x + w, y,     r);
-      ctx.closePath();
-    };
-
-    // Place the next uncollected tool — starts at the tool button's position
-    const spawnTool = (W: number, H: number) => {
-      const next = cbs.current.tools.find(t => !collectedIds.current.has(t.id));
-      if (!next) {
-        g.current.allDone = true;
-        g.current.closeT  = 0;
-        setLabel('All signals recovered');
-        if (toolDivRef.current) toolDivRef.current.style.opacity = '0';
-        cbs.current.onActiveToolChange?.(null);
-        return;
-      }
-
-      cbs.current.onActiveToolChange?.(next.id);
-
-      // Find the button for this tool and use its center position
-      const btn = document.getElementById(`signal-tool-${next.id}`);
-      const canvasRect = canvas.getBoundingClientRect();
-      if (btn && canvasRect.width > 0) {
-        const br = btn.getBoundingClientRect();
-        g.current.tx = br.left + br.width  / 2 - canvasRect.left;
-        g.current.ty = br.top  + br.height / 2 - canvasRect.top;
-      } else {
-        // Fallback to random if button not found
-        const m = R + 24;
-        g.current.tx = m + Math.random() * (W - m * 2);
-        g.current.ty = m + Math.random() * (H - m * 2);
-      }
-
-      g.current.placed     = false;
-      g.current.pressure   = 0;
-      g.current.status     = 'roaming';
-      g.current.shake      = 0;
-      g.current.shakeScale = 1;
-      setLabel('Chase the pocket');
-      setPressure(0);
-      setToolImg(next.image);
-      if (toolDivRef.current) {
-        toolDivRef.current.style.left    = `${g.current.tx}px`;
-        toolDivRef.current.style.top     = `${g.current.ty}px`;
-        toolDivRef.current.style.opacity = '1';
-      }
-    };
-
-    let rafId: number;
-
-    const tick = (now: number) => {
-      fit();
-      const W = canvas.width;
-      const H = canvas.height;
-      ctx.clearRect(0, 0, W, H);
-      const s = g.current;
-
-      // ── Initialize ──
-      if (!s.initialized && W > 0 && H > 0) {
-        const m = R + 24;
-        s.px = m + Math.random() * (W - m * 2);
-        s.py = m + Math.random() * (H - m * 2);
-        s.initialized = true;
-        spawnTool(W, H);
-      }
-      if (!s.initialized) { rafId = requestAnimationFrame(tick); return; }
-
-      // ── Advance to next tool after success animation ──
-      if (s.needsAdvance) {
-        s.needsAdvance = false;
-        spawnTool(W, H);
-      }
-
-      // ── Success animation ──
-      if (s.successT >= 0) {
-        s.successT += 0.016;
-        if (s.successT >= 1) {
-          s.successT     = -1;
-          s.needsAdvance = true;
-        }
-      }
-
-      // ── Pocket close animation (all done) ──
-      if (s.closeT >= 0) {
-        s.closeT += 0.02;
-        if (s.closeT >= 1) s.closeT = -2;
-      }
-      if (s.closeT === -2) { rafId = requestAnimationFrame(tick); return; }
-
-      // ── Physics (skip during success or all done) ──
-      if (!s.placed && !s.allDone && s.successT < 0) {
-        const dx = s.tx - s.px, dy = s.ty - s.py;
-        const dist = Math.hypot(dx, dy);
-        let nx = s.px, ny = s.py;
-
-        if (dist < FLEE) {
-          const a = Math.atan2(-dy, -dx);
-          nx += Math.cos(a) * 4;
-          ny += Math.sin(a) * 4;
-          if (s.status === 'roaming') { s.status = 'fleeing'; setLabel('It senses you...'); }
-        } else {
-          s.phase += 0.014;
-          const gx  = W * (0.15 + 0.7 * (0.5 + 0.5 * Math.sin(s.phase * 1.1)));
-          const gy  = H * (0.15 + 0.7 * (0.5 + 0.5 * Math.cos(s.phase * 0.73 + 1.2)));
-          const gdx = gx - s.px, gdy = gy - s.py;
-          const gd  = Math.hypot(gdx, gdy) || 1;
-          nx += (gdx / gd) * Math.min(gd * 0.07, 2.0);
-          ny += (gdy / gd) * Math.min(gd * 0.07, 2.0);
-          if (s.status === 'fleeing') { s.status = 'roaming'; setLabel('Chase the pocket'); }
-        }
-
-        s.px = Math.max(R, Math.min(W - R, nx));
-        s.py = Math.max(R, Math.min(H - R, ny));
-
-        const d2       = Math.hypot(s.tx - s.px, s.ty - s.py);
-        const cornered = (s.px < MARGIN || s.px > W - MARGIN) && (s.py < MARGIN || s.py > H - MARGIN);
-
-        if (cornered && d2 < FLEE) {
-          if (s.status !== 'cornered') { s.status = 'cornered'; setLabel('Cornered — close in!'); }
-          s.shake      = Math.sin(now / 45) * 6 * (0.3 + s.pressure / 100);
-          s.shakeScale = 1 + Math.abs(s.shake) * 0.012;
-
-          if (d2 < CAP) {
-            s.pressure = Math.min(100, s.pressure + 1.8);
-            setPressure(Math.round(s.pressure));
-
-            if (s.pressure >= 100) {
-              // Capture! Mark tool as collected
-              const current = cbs.current.tools.find(t => !collectedIds.current.has(t.id));
-              if (current) {
-                collectedIds.current.add(current.id);
-                cbs.current.onCollect(current.id);
-                // Leave the button hidden — SignalToolButton now fades/shrinks
-                // it away permanently once `collected` is true, instead of
-                // popping back to full opacity.
-              }
-              s.placed   = true;
-              s.successT = 0;
-              setLabel('Signal captured!');
-              if (toolDivRef.current) toolDivRef.current.style.opacity = '0';
-            }
-          } else {
-            s.pressure = Math.max(0, s.pressure - 0.8);
-            setPressure(Math.round(s.pressure));
-          }
-        } else {
-          if (s.status === 'cornered') {
-            s.status = d2 < FLEE ? 'fleeing' : 'roaming';
-            setLabel(d2 < FLEE ? 'It senses you...' : 'Chase the pocket');
-          }
-          s.shake      *= 0.84;
-          s.shakeScale  = 1 + (s.shakeScale - 1) * 0.84;
-          s.pressure    = Math.max(0, s.pressure - 1);
-          setPressure(Math.round(s.pressure));
-        }
-      }
-
-      // ── Draw pocket ──
-      const cDraw = (s.px < MARGIN || s.px > W - MARGIN) && (s.py < MARGIN || s.py > H - MARGIN);
-      const inSuccess = s.successT >= 0;
-      const inClose   = s.closeT >= 0;
-      const closeAlpha = inClose ? Math.max(0, 1 - s.closeT) : 1;
-
-      ctx.save();
-      ctx.globalAlpha = closeAlpha;
-      ctx.translate(s.px, s.py);
-
-      const pw = 58, ph = 52, pr = 13;
-
-      if (inSuccess) {
-        // Glowing success state — pocket stays, shows checkmark
-        const glow = 0.4 + 0.4 * Math.sin(s.successT * Math.PI * 4);
-        ctx.shadowColor = `rgba(165,231,255,${glow})`;
-        ctx.shadowBlur  = 24 + glow * 22;
-        rr(-pw / 2, -ph / 2, pw, ph, pr);
-        ctx.fillStyle   = `rgba(165,231,255,0.2)`;
-        ctx.strokeStyle = `rgba(165,231,255,0.88)`;
-        ctx.lineWidth   = 2;
-        ctx.fill(); ctx.stroke();
-        ctx.shadowBlur  = 0;
-        ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-        ctx.lineWidth   = 2.5;
-        ctx.lineCap     = 'round';
-        ctx.lineJoin    = 'round';
-        ctx.globalAlpha = closeAlpha * Math.min(1, s.successT * 5);
-        ctx.beginPath();
-        ctx.moveTo(-11, 0); ctx.lineTo(-3, 9); ctx.lineTo(13, -9);
-        ctx.stroke();
-        ctx.globalAlpha = closeAlpha;
-      } else {
-        // Normal or closing pocket
-        ctx.rotate((s.shake * Math.PI) / 180);
-        ctx.scale(s.shakeScale, s.shakeScale);
-        if (cDraw && !inClose) {
-          ctx.shadowColor = `rgba(165,231,255,${0.18 + s.pressure / 350})`;
-          ctx.shadowBlur  = 16 + s.pressure * 0.2;
-        }
-        rr(-pw / 2, -ph / 2, pw, ph, pr);
-        ctx.fillStyle   = `rgba(165,231,255,${0.07 + s.pressure / 900})`;
-        ctx.strokeStyle = `rgba(165,231,255,${0.35 + s.pressure / 280})`;
-        ctx.lineWidth   = 1.5;
-        ctx.fill(); ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = 'rgba(165,231,255,0.45)';
-        rr(-15, -5, 30, 8, 4);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(165,231,255,0.28)';
-        ctx.lineWidth   = 1;
-        ctx.beginPath();
-        ctx.moveTo(-14, ph / 2 + 1);
-        ctx.quadraticCurveTo(0, ph / 2 + 9, 14, ph / 2 + 1);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-      rafId = requestAnimationFrame(tick);
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const onToolDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (g.current.placed || g.current.allDone) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.currentTarget.style.cursor = 'grabbing';
-    e.preventDefault();
-  };
-
-  const onToolMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.buttons === 0 || g.current.placed || g.current.allDone) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.max(R, Math.min(rect.width  - R, e.clientX - rect.left));
-    const y = Math.max(R, Math.min(rect.height - R, e.clientY - rect.top));
-    g.current.tx = x;
-    g.current.ty = y;
-    e.currentTarget.style.left = `${x}px`;
-    e.currentTarget.style.top  = `${y}px`;
-  };
-
-  const onToolUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.style.cursor = 'grab';
-  };
-
-  return (
-    <>
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 h-full w-full z-[5] pointer-events-none"
-      />
-      <div className="pointer-events-none absolute left-3 top-3 z-[6] text-[9px] font-semibold uppercase tracking-[0.22em] text-cyan-100/50">
-        {label}
-      </div>
-      <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[6]">
-        <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.18em] text-white/35">
-          <span>Corner pressure</span><span>{pressure}%</span>
-        </div>
-        <div className="h-1 overflow-hidden rounded-full bg-white/10">
-          <motion.div
-            className="h-full rounded-full bg-cyan-100/70"
-            animate={{ width: `${pressure}%` }}
-            transition={{ duration: 0.08 }}
-          />
-        </div>
-      </div>
-      <div
-        ref={toolDivRef}
-        className="absolute z-[30] grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center rounded-full border border-white/25 bg-black/70 shadow-[0_0_28px_rgba(255,255,255,0.16)] touch-none select-none"
-        style={{ left: 0, top: 0, opacity: 0 }}
-        onPointerDown={onToolDown}
-        onPointerMove={onToolMove}
-        onPointerUp={onToolUp}
-        onPointerLeave={onToolUp}
-      >
-        {toolImg && <img src={toolImg} alt="" className="h-11 w-11 object-contain pointer-events-none" />}
-      </div>
-    </>
-  );
-}
-
-function MissionBrief({
-  unlockedCount,
-  collectedCount,
-  nextLockedTitle,
-  nextToolName,
-  onEnterOrbit,
-  onOpenTools,
-}: {
-  unlockedCount: number;
-  collectedCount: number;
-  nextLockedTitle?: string;
-  nextToolName?: string;
-  onEnterOrbit: () => void;
-  onOpenTools: () => void;
-}) {
-  const signalBands = signalTools.slice(0, 4);
-
-  return (
-    <section className="relative z-30 min-h-screen overflow-hidden px-5 py-28">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_48%,rgba(80,132,180,0.16),transparent_32%),radial-gradient(circle_at_20%_72%,rgba(126,155,255,0.12),transparent_30%)]" />
-      <div className="pointer-events-none absolute left-[58%] top-1/2 h-[92vmin] w-[92vmin] -translate-y-1/2 rounded-full border border-white/8" />
-      <div className="pointer-events-none absolute left-[63%] top-1/2 h-[62vmin] w-[62vmin] -translate-y-1/2 rounded-full border border-cyan-100/10" />
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-100/18 to-transparent" />
-
-      <motion.div
-        className="pointer-events-none absolute right-[-12vmin] top-1/2 h-[68vmin] w-[68vmin] -translate-y-1/2"
-        initial={{ opacity: 0, scale: 0.86, x: 80 }}
-        whileInView={{ opacity: 1, scale: 1, x: 0 }}
-        viewport={{ once: false, amount: 0.34 }}
-        transition={{ duration: 1 }}
-      >
-        <div className="absolute inset-[7%] rounded-full bg-cyan-100/8 blur-3xl" />
-        <motion.img
-          src="/images/planet2.png"
-          alt=""
-          className="relative h-full w-full rounded-full object-cover opacity-90 shadow-[0_0_120px_rgba(125,190,255,0.16)]"
-          animate={{ rotate: [0, 2, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      </motion.div>
-
-      <div className="relative mx-auto grid min-h-[78vh] max-w-7xl grid-cols-1 gap-10 md:grid-cols-[0.95fr_1.05fr] md:items-center">
-      <motion.div
-        className="relative z-20 max-w-3xl"
-        initial={{ opacity: 0, y: 50 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: false, amount: 0.35 }}
-        transition={{ duration: 0.75 }}
-      >
-        <p className="mb-5 text-xs font-semibold uppercase tracking-[0.42em] text-cyan-100/52">Recovered Signal / DELIX IP</p>
-        <h2 className="text-6xl font-black leading-[0.86] md:text-8xl">
-          Music worlds drifting in one archive.
-        </h2>
-        <p className="mt-8 max-w-2xl text-lg leading-9 text-white/62">
-          DELIX opens like a flight record. Songs pass as planets, locked tracks answer to signal tools, and the listener slowly reconstructs Runaway Rabbit's orbit from fragments.
-        </p>
-        <div className="mt-9 grid max-w-xl grid-cols-3 border-y border-white/10 py-5">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/34">Songs</p>
-            <p className="mt-3 text-4xl font-black">{unlockedCount}/{albumData.totalSongs}</p>
-          </div>
-          <div className="border-x border-white/10 px-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/34">Tools</p>
-            <p className="mt-3 text-4xl font-black">{collectedCount}/{signalTools.length}</p>
-          </div>
-          <div className="pl-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/34">Mode</p>
-            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/62">Explore</p>
-          </div>
-        </div>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={onEnterOrbit}
-            className="rounded-full border border-cyan-100/24 bg-black/36 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100/76 backdrop-blur-xl transition hover:border-cyan-100/46 hover:bg-cyan-100/10 hover:text-white"
-          >
-            Enter Orbit
-          </button>
-          <button
-            type="button"
-            onClick={onOpenTools}
-            className="rounded-full border border-white/12 bg-black/24 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/54 backdrop-blur-xl transition hover:border-white/26 hover:text-white"
-          >
-            Trace Signal Tools
-          </button>
-        </div>
-      </motion.div>
-
-      <motion.div
-        className="relative z-10 min-h-[620px]"
-        initial={{ opacity: 0, y: 70, scale: 0.96 }}
-        whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        viewport={{ once: false, amount: 0.35 }}
-        transition={{ duration: 0.75, delay: 0.08 }}
-      >
-        <div className="absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
-        <div className="absolute left-1/2 top-1/2 h-[390px] w-[390px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/12" />
-        <div className="absolute left-1/2 top-1/2 h-px w-[620px] -translate-x-1/2 bg-white/8" />
-        <div className="absolute left-1/2 top-1/2 h-[620px] w-px -translate-y-1/2 bg-white/8" />
-
-        <div className="absolute left-1/2 top-1/2 w-[min(72vw,360px)] -translate-x-1/2 -translate-y-1/2 text-center">
-          <img src="/images/runaway.png" alt="" className="mx-auto mb-5 h-24 w-24 object-contain opacity-90" />
-          <p className="text-[10px] font-semibold uppercase tracking-[0.34em] text-cyan-100/46">Next Signal</p>
-          {nextLockedTitle && nextToolName ? (
-            <>
-              <h3 className="mt-4 text-4xl font-black leading-none text-white">{nextLockedTitle}</h3>
-              <p className="mx-auto mt-4 max-w-xs text-sm leading-7 text-white/56">
-                Collect <span className="text-cyan-100/86">{nextToolName}</span> and the locked planet becomes audible.
-              </p>
-            </>
-          ) : (
-            <>
-              <h3 className="mt-4 text-4xl font-black leading-none text-white">Archive complete</h3>
-              <p className="mx-auto mt-4 max-w-xs text-sm leading-7 text-white/56">
-                Every current signal is open. Enter any planet to listen and inspect the world inside.
-              </p>
-            </>
-          )}
-        </div>
-
-        <div className="absolute left-[2%] top-[18%] w-[min(42vw,260px)] border-y border-white/10 bg-black/20 py-4 backdrop-blur-sm">
-          <p className="mb-4 text-[9px] font-semibold uppercase tracking-[0.26em] text-cyan-100/42">Signal Frequencies</p>
-          <div className="space-y-4">
-            {signalBands.map((tool, index) => {
-              const isNext = tool.name === nextToolName;
-              return (
-                <div key={tool.id} className="grid grid-cols-[52px_1fr] items-center gap-3">
-                  <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${isNext ? 'text-cyan-100/78' : 'text-white/28'}`}>
-                    {String(index + 1).padStart(2, '0')}
-                  </div>
-                  <div>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className={`truncate text-[10px] font-semibold uppercase tracking-[0.18em] ${isNext ? 'text-white/78' : 'text-white/36'}`}>
-                        {tool.unlocksSong}
-                      </span>
-                      <span className={`h-1.5 w-1.5 rounded-full ${isNext ? 'bg-cyan-100 shadow-[0_0_18px_rgba(207,250,254,0.9)]' : 'bg-white/20'}`} />
-                    </div>
-                    <div className="h-px overflow-hidden bg-white/10">
-                      <motion.div
-                        className={`h-px ${isNext ? 'bg-cyan-100/80' : 'bg-white/28'}`}
-                        initial={{ x: '-100%' }}
-                        whileInView={{ x: isNext ? '0%' : '-28%' }}
-                        viewport={{ once: false, amount: 0.35 }}
-                        transition={{ duration: 0.8, delay: index * 0.12 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="absolute bottom-2 left-1/2 grid w-[min(94vw,620px)] -translate-x-1/2 grid-cols-3 border-y border-white/10 bg-black/30 backdrop-blur-xl">
-          {missionPrinciples.map((item) => (
-            <div key={item.label} className="px-4 py-4">
-              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">{item.label}</p>
-              <p className="mt-2 text-xs font-semibold leading-5 text-white/66">{item.title}</p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-      </div>
-    </section>
-  );
-}
+import { flightPaths, LockedMission, signalTools, SignalTool } from './cosmic-voyage/data';
+import { Model3DGate, PhaseLabel } from './cosmic-voyage/ProgressGates';
+import { VoyagePlanet } from './cosmic-voyage/VoyagePlanet';
+import { VoyageToolBeacon } from './cosmic-voyage/VoyageToolBeacon';
+import { SignalToolButton } from './cosmic-voyage/SignalToolButton';
+import { PocketRecoveryGame } from './cosmic-voyage/PocketRecoveryGame';
+import { starField } from './cosmic-voyage/data';
 
 export default function CosmicVoyage() {
   const router = useRouter();
@@ -918,8 +49,13 @@ export default function CosmicVoyage() {
   // a PocketRecoveryGame's wandering pocket is currently standing in for it.
   const [chasedToolId, setChasedToolId] = useState<number | null>(null);
 
-  // Reactively watch collectedTools — most reliable way to trigger the notification
-  const prevCollectedRef = useRef<number[]>([]);
+  // Reactively watch collectedTools — most reliable way to trigger the notification.
+  // Seeded from the current stats on mount (not []) so that returning to this
+  // page — e.g. navigating to a song page and back, which unmounts and
+  // remounts CosmicVoyage while UnlockProvider's state survives — doesn't
+  // treat every tool collected in an earlier mount as newly collected and
+  // re-open the unlock popup.
+  const prevCollectedRef = useRef<number[]>(stats.collectedTools ?? []);
   useEffect(() => {
     const current = stats.collectedTools ?? [];
     const newId = current.find((id) => !prevCollectedRef.current.includes(id));
@@ -996,8 +132,19 @@ export default function CosmicVoyage() {
   const unlockedCount = songs.filter((song) => song.unlocked).length;
   const collectedCount = signalTools.filter((tool) => checkToolCollected(tool.id)).length;
 
-  // Random positions for the 4 tool buttons inside the signal-tools card
-  const toolPositions = useMemo(() => {
+  // Random positions for the 4 tool buttons inside the signal-tools card.
+  // Starts from the deterministic fallback layout (same on server and
+  // client, so hydration never sees mismatched left/top values), then
+  // randomizes once mounted in the browser — a client-only effect runs
+  // after hydration, so this DOM update never gets diffed against SSR
+  // output.
+  const fallbackToolPositions = signalTools.map((_, i) => ({
+    left: `${(12 + i * 22).toFixed(1)}%`,
+    top: `${(12 + (i % 2) * 65).toFixed(1)}%`,
+  }));
+  const [toolPositions, setToolPositions] = useState(fallbackToolPositions);
+
+  useEffect(() => {
     const placed: { l: number; t: number }[] = [];
     const MIN_SEP = 28; // minimum % distance between tool centers
     for (let i = 0; i < 4; i++) {
@@ -1013,10 +160,8 @@ export default function CosmicVoyage() {
       }
       placed.push(best);
     }
-    return placed.map((p) => ({ left: `${p.l.toFixed(1)}%`, top: `${p.t.toFixed(1)}%` }));
+    setToolPositions(placed.map((p) => ({ left: `${p.l.toFixed(1)}%`, top: `${p.t.toFixed(1)}%` })));
   }, []);
-  const focusedTool = signalTools.find((tool) => tool.id === focusedToolId) || signalTools[0];
-  const focusedToolCollected = checkToolCollected(focusedTool.id);
   const nextLockedSong = songs.find((song) => !song.unlocked);
   const nextRequiredTool = nextLockedSong
     ? signalTools.find((tool) => tool.songId === nextLockedSong.id)
@@ -1132,11 +277,10 @@ export default function CosmicVoyage() {
             className="pointer-events-auto absolute inset-0 z-10"
             style={{ opacity: planetLayerOpacity }}
           >
-            {songs.map((song, index) => (
+            {songs.map((song) => (
               <VoyagePlanet
                 key={song.id}
                 song={song}
-                index={index}
                 progress={smoothVoyageProgress}
                 onClick={() => openSong(song)}
               />
@@ -1232,7 +376,7 @@ export default function CosmicVoyage() {
                   <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border transition-all duration-500 ${
                     collected ? 'border-cyan-100/38 bg-cyan-100/8 shadow-[0_0_24px_rgba(165,231,255,0.14)]' : 'border-white/10 bg-black/40'
                   }`}>
-                    <img src={tool.image} alt="" className="h-7 w-7 object-contain" />
+                    <Image src={tool.image} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-white/80">{collected ? tool.name : '???'}</p>
@@ -1343,15 +487,17 @@ export default function CosmicVoyage() {
                 className="absolute inset-0"
                 style={{ background: `radial-gradient(circle at 60% 50%, ${unlockNotice.songColor}28, transparent 70%)` }}
               />
-              <img
+              <Image
                 src={unlockNotice.songPlanetImage}
                 alt=""
+                width={176}
+                height={176}
                 className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full object-cover opacity-80 shadow-[0_0_80px_rgba(0,0,0,0.6)]"
                 style={{ boxShadow: `0 0 80px ${unlockNotice.songColor}44` }}
               />
               {/* tool icon badge */}
               <div className="absolute right-5 top-5 grid h-12 w-12 place-items-center rounded-full border border-cyan-100/28 bg-black/70 shadow-[0_0_28px_rgba(165,231,255,0.18)] backdrop-blur-xl">
-                <img src={unlockNotice.toolImage} alt="" className="h-7 w-7 object-contain" />
+                <Image src={unlockNotice.toolImage} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
               </div>
               {/* scan line */}
               <motion.div

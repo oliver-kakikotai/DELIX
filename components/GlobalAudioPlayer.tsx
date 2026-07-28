@@ -1,8 +1,9 @@
 'use client';
 
 import { useAudio } from '@/contexts/AudioContext';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 export default function GlobalAudioPlayer() {
   const { currentSong, isPlaying, currentTime, duration, volume, togglePlay, seek, setVolume, playNext, playPrevious } = useAudio();
@@ -94,14 +95,16 @@ export default function GlobalAudioPlayer() {
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* 专辑封面 */}
               <div
-                className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border shadow-lg"
+                className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border shadow-lg"
                 style={{ borderColor: `${accent}55`, boxShadow: `0 0 18px ${accent}40` }}
               >
                 {currentSong.planetImage ? (
-                  <img
+                  <Image
                     src={currentSong.planetImage}
                     alt={currentSong.title}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="48px"
+                    className="object-cover"
                   />
                 ) : (
                   <div
