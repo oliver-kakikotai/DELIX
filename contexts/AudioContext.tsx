@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, useEffect, useCallback, ReactNode } from 'react';
 import { Song, albumData } from '@/data/albumData';
 
 interface AudioContextType {
@@ -81,7 +81,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     };
   }, [loop]);
 
-  const startSong = (song: Song) => {
+  const startSong = useCallback((song: Song) => {
     if (!audioRef.current) return;
 
     if (currentSong?.id === song.id) {
@@ -115,22 +115,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }, { once: true });
 
     setIsPlaying(true);
-  };
-
-  // 播放歌曲。相同歌曲时作为播放/暂停按钮使用，不同歌曲时切换到新歌曲。
-  const playSong = (song: Song) => {
-    if (!audioRef.current) return;
-
-    if (currentSong?.id === song.id) {
-      togglePlay();
-      return;
-    }
-
-    startSong(song);
-  };
+  }, [currentSong]);
 
   // 切换播放/暂停
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (!audioRef.current || !currentSong) return;
 
     if (isPlaying) {
@@ -146,37 +134,49 @@ export function AudioProvider({ children }: { children: ReactNode }) {
           setIsPlaying(false);
         });
     }
-  };
+  }, [currentSong, isPlaying]);
+
+  // 播放歌曲。相同歌曲时作为播放/暂停按钮使用，不同歌曲时切换到新歌曲。
+  const playSong = useCallback((song: Song) => {
+    if (!audioRef.current) return;
+
+    if (currentSong?.id === song.id) {
+      togglePlay();
+      return;
+    }
+
+    startSong(song);
+  }, [currentSong, togglePlay, startSong]);
 
   // 暂停
-  const pause = () => {
+  const pause = useCallback(() => {
     if (!audioRef.current) return;
     audioRef.current.pause();
     setIsPlaying(false);
-  };
+  }, []);
 
   // 跳转到指定时间
-  const seek = (time: number) => {
+  const seek = useCallback((time: number) => {
     if (!audioRef.current) return;
     audioRef.current.currentTime = time;
     setCurrentTime(time);
-  };
+  }, []);
 
   // 设置音量
-  const setVolume = (newVolume: number) => {
+  const setVolume = useCallback((newVolume: number) => {
     if (!audioRef.current) return;
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
     audioRef.current.volume = clampedVolume;
     setVolumeState(clampedVolume);
-  };
+  }, []);
 
   // 切换循环模式
-  const toggleLoop = () => {
-    setLoop(!loop);
-  };
+  const toggleLoop = useCallback(() => {
+    setLoop((prev) => !prev);
+  }, []);
 
   // 播放下一首
-  const playNext = () => {
+  const playNext = useCallback(() => {
     if (!currentSong) return;
 
     // 只播放已解锁的歌曲
@@ -188,10 +188,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 如果不是最后一首，播放下一首；否则循环到第一首
     const nextIndex = (currentIndex + 1) % unlockedSongs.length;
     playSong(unlockedSongs[nextIndex]);
-  };
+  }, [currentSong, playSong]);
 
   // 播放上一首
-  const playPrevious = () => {
+  const playPrevious = useCallback(() => {
     if (!currentSong) return;
 
     // 只播放已解锁的歌曲
@@ -203,7 +203,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 如果不是第一首，播放上一首；否则循环到最后一首
     const prevIndex = currentIndex === 0 ? unlockedSongs.length - 1 : currentIndex - 1;
     playSong(unlockedSongs[prevIndex]);
-  };
+  }, [currentSong, playSong]);
 
   const value: AudioContextType = {
     currentSong,

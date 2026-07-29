@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 type IconLink = {
   name: string;
@@ -68,40 +67,11 @@ function TikTokIcon() {
   );
 }
 
+const subtitle = 'A musical archive drifting through locked worlds and recovered signals.';
+const coordinates = 'Orbit';
+const copyright = '© 2026 Runaway Rabbit. DELIX cosmic album archive.';
+
 export default function Footer() {
-  const { currentLanguage } = useLanguage();
-
-  const translations = {
-    subtitle: {
-      en: 'A musical archive drifting through locked worlds and recovered signals.',
-      zh: '一座漂浮在锁定星球与回收信号之间的音乐档案。',
-      ja: 'ロックされた世界と回収された信号を漂う音楽アーカイブ。'
-    },
-    transmissions: {
-      en: 'Listen',
-      zh: '收听',
-      ja: '聴く'
-    },
-    coordinates: {
-      en: 'Orbit',
-      zh: '轨道',
-      ja: '軌道'
-    },
-    copyright: {
-      en: '© 2026 Runaway Rabbit. DELIX cosmic album archive.',
-      zh: '© 2026 Runaway Rabbit. DELIX 宇宙专辑档案。',
-      ja: '© 2026 Runaway Rabbit. DELIX cosmic album archive.'
-    },
-    signal: {
-      en: 'FINAL TRANSMISSION',
-      zh: '最终信号',
-      ja: '最終信号'
-    }
-  };
-
-  const t = (key: keyof typeof translations) =>
-    translations[key][currentLanguage as keyof (typeof translations)[typeof key]];
-
   const musicPlatforms: IconLink[] = [
     { name: 'Spotify', href: '#', icon: <SpotifyIcon /> },
     { name: 'Apple Music', href: '#', icon: <AppleMusicIcon /> },
@@ -116,11 +86,9 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="relative z-10 overflow-hidden bg-black text-white">
+    <footer className="relative z-10 overflow-hidden bg-[#D9FF12] text-black">
       {/* top entry line */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/14 to-transparent" />
-      {/* subtle glow behind the big type */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_60%,rgba(100,120,255,0.10),transparent_50%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/14 to-transparent" />
 
       <motion.div
         className="relative"
@@ -130,9 +98,9 @@ export default function Footer() {
         transition={{ duration: 1, ease: 'easeOut' }}
       >
         {/* ── Giant headline ── */}
-        <div className="overflow-hidden border-b border-white/[0.07] px-4 pb-2 pt-14 md:px-8">
+        <div className="overflow-hidden border-b border-black/[0.08] px-4 pb-2 pt-14 md:px-8">
           <motion.h2
-            className="select-none font-black leading-[0.82] tracking-tight text-white"
+            className="select-none font-black leading-[0.82] tracking-tight text-black"
             style={{ fontSize: 'clamp(4.5rem, 17vw, 16rem)' }}
             initial={{ y: '18%', opacity: 0 }}
             whileInView={{ y: '0%', opacity: 1 }}
@@ -146,8 +114,8 @@ export default function Footer() {
         {/* ── Tagline + links row ── */}
         <div className="flex flex-col gap-6 px-4 pb-10 pt-7 md:flex-row md:items-end md:justify-between md:px-8">
           {/* Tagline */}
-          <p className="max-w-xs text-sm leading-7 text-white/44 md:max-w-sm">
-            {t('subtitle')}
+          <p className="max-w-xs text-sm leading-7 text-black/55 md:max-w-sm">
+            {subtitle}
           </p>
 
           {/* Right: platforms + socials */}
@@ -159,24 +127,24 @@ export default function Footer() {
                   key={platform.name}
                   href={platform.href}
                   aria-label={platform.name}
-                  className="group flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 text-[11px] font-semibold text-white/48 transition duration-300 hover:border-white/26 hover:bg-white/[0.08] hover:text-white"
+                  className="group flex h-9 items-center gap-2 rounded-full border border-black/15 bg-black/[0.04] px-4 text-[11px] font-semibold text-black/60 transition duration-300 hover:border-black/32 hover:bg-black/[0.08] hover:text-black"
                 >
                   {platform.icon}
-                  <span className="group-hover:text-white/86 transition">{platform.name}</span>
+                  <span className="group-hover:text-black transition">{platform.name}</span>
                 </a>
               ))}
             </div>
             {/* Social icons */}
             <div className="flex items-center gap-2">
-              <span className="mr-1 text-[9px] font-semibold uppercase tracking-[0.26em] text-white/28">
-                {t('coordinates')}
+              <span className="mr-1 text-[9px] font-semibold uppercase tracking-[0.26em] text-black/38">
+                {coordinates}
               </span>
               {socialLinks.map((social) => (
                 <a
                   key={social.name}
                   href={social.href}
                   aria-label={social.name}
-                  className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-white/46 transition duration-300 hover:border-white/28 hover:text-white"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-black/15 bg-black/[0.04] text-black/58 transition duration-300 hover:border-black/34 hover:text-black"
                 >
                   {social.icon}
                 </a>
@@ -186,11 +154,11 @@ export default function Footer() {
         </div>
 
         {/* ── Copyright strip ── */}
-        <div className="flex items-center justify-between border-t border-white/[0.07] px-4 py-4 text-[10px] uppercase tracking-[0.22em] text-white/24 md:px-8">
-          <p>{t('copyright')}</p>
+        <div className="flex items-center justify-between border-t border-black/[0.08] px-4 py-4 text-[10px] uppercase tracking-[0.22em] text-black/40 md:px-8">
+          <p>{copyright}</p>
           <div className="flex items-center gap-2">
             <motion.span
-              className="h-1.5 w-1.5 rounded-full bg-cyan-200/50"
+              className="h-1.5 w-1.5 rounded-full bg-black/60"
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
             />

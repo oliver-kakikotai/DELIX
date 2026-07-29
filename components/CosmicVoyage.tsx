@@ -12,6 +12,7 @@ import { VoyagePlanet } from './cosmic-voyage/VoyagePlanet';
 import { VoyageToolBeacon } from './cosmic-voyage/VoyageToolBeacon';
 import { SignalToolButton } from './cosmic-voyage/SignalToolButton';
 import { PocketRecoveryGame } from './cosmic-voyage/PocketRecoveryGame';
+import { OriginFile } from './cosmic-voyage/OriginFile';
 import { starField } from './cosmic-voyage/data';
 
 export default function CosmicVoyage() {
@@ -176,7 +177,7 @@ export default function CosmicVoyage() {
     setSelectedLocked({
       title: song.title,
       toolName: requiredTool?.name || 'UNKNOWN SIGNAL TOOL',
-      clue: requiredTool?.clue || song.unlockCondition?.description.en || 'A hidden archive tool is required.',
+      clue: requiredTool?.clue || song.unlockCondition?.description || 'A hidden archive tool is required.',
     });
   };
 
@@ -319,6 +320,8 @@ export default function CosmicVoyage() {
           </div>
         </motion.div>
       </section>
+
+      <OriginFile />
 
       <section
         ref={toolsRef}

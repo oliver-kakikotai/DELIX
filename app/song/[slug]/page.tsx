@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getSongBySlug } from '@/data/albumData';
 import { useAudio } from '@/contexts/AudioContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnlock } from '@/contexts/UnlockContext';
 import LyricsDisplay from '@/components/LyricsDisplay';
 
@@ -60,7 +59,6 @@ const songWorlds: Record<string, {
 export default function SongPage() {
   const params = useParams();
   const router = useRouter();
-  const { currentLanguage } = useLanguage();
   const { startSong, currentSong, isPlaying, currentTime } = useAudio();
   const { checkUnlock } = useUnlock();
   const [showMeteors, setShowMeteors] = useState(false);
@@ -109,24 +107,9 @@ export default function SongPage() {
     return null;
   }
 
-  const translations = {
-    back: {
-      en: 'Back to Album',
-      zh: '返回专辑',
-      ja: 'アルバムに戻る'
-    },
-    nowPlaying: {
-      en: 'Now Playing',
-      zh: '正在播放',
-      ja: '再生中'
-    }
-  };
-
-  const t = (key: keyof typeof translations) =>
-    translations[key][currentLanguage as keyof typeof translations[typeof key]];
   const world = songWorlds[song.slug] || {
     signal: 'SONG WORLD',
-    atmosphere: song.description?.[currentLanguage as keyof typeof song.description] || 'A recovered signal in the DELIX archive.',
+    atmosphere: song.description || 'A recovered signal in the DELIX archive.',
     background: `radial-gradient(circle at 50% 50%, ${song.color || '#ffffff'}30, transparent 70%), #020204`,
     accent: song.color || '#ffffff',
     media: 'star',
@@ -191,11 +174,11 @@ export default function SongPage() {
               className="flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white"
             >
               <span className="text-2xl">←</span>
-              <span>{t('back')}</span>
+              <span>Back to Album</span>
             </button>
 
             <div className="text-center">
-              <p className="text-sm text-white/42">{t('nowPlaying')}</p>
+              <p className="text-sm text-white/42">Now Playing</p>
               <h2 className="text-white text-xl font-bold">{song.title}</h2>
             </div>
 

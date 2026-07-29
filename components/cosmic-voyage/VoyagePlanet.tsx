@@ -91,15 +91,15 @@ export function VoyagePlanet({
           type="button"
           onClick={onClick}
           aria-label={song.unlocked ? `Open ${song.title}` : `${song.title} is locked`}
-          className={`pointer-events-auto fixed bottom-[12vh] z-40 w-[min(42vw,480px)] rounded-2xl border border-white/18 bg-white/[0.075] px-6 py-5 text-left shadow-[0_20px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl ${infoPlacementClass}`}
+          className={`pointer-events-auto fixed bottom-[12vh] z-40 w-[min(42vw,480px)] rounded-2xl border border-black/10 bg-[#D9FF12] px-6 py-5 text-left shadow-[0_20px_80px_rgba(0,0,0,0.35)] ${infoPlacementClass}`}
           style={{ y: infoY, opacity: infoOpacity }}
         >
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.34em] text-white/58">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.34em] text-black/55">
             {song.unlocked ? 'UNLOCKED SIGNAL' : 'LOCKED SIGNAL'}
           </p>
-          <h2 className="text-3xl font-black leading-none text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.38)] md:text-5xl">{song.title}</h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-white/72">
-            {song.intro || song.description?.en || 'A passing world in the DELIX archive.'}
+          <h2 className="text-3xl font-black leading-none text-black md:text-5xl">{song.title}</h2>
+          <p className="mt-4 max-w-md text-sm leading-7 text-black/65">
+            {song.intro || song.description || 'A passing world in the DELIX archive.'}
           </p>
         </motion.button>
       )}

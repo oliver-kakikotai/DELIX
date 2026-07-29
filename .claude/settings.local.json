@@ -6,7 +6,16 @@
       "Bash(pkill -f \"next lint\")",
       "Bash(npm ls *)",
       "Bash(npm audit *)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(git rm *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(disown)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/song/third-person)",
+      "Bash(git add *)"
     ],
     "deny": []
   }

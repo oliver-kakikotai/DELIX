@@ -318,8 +318,14 @@ body {
   padding: 0;
   width: 100vw;
   min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: scroll; /* 强制显示滚动 */
+  /* No overflow-x/overflow-y here on purpose — html already handles both
+     above. Setting `overflow-x: hidden` here still forces the browser to
+     compute overflow-y as `auto` (per spec, a non-visible x forces a
+     non-visible y), which makes body its own scroll container. That breaks
+     `position: sticky` for anything nested inside it — descendants stick
+     relative to body's box, which drifts out of sync with
+     window.scrollTo/scrollY. Keep both axes fully `visible` on body so
+     html stays the only scrolling ancestor. */
   -webkit-overflow-scrolling: touch; /* 平滑滚动 iOS */
   overscroll-behavior-y: auto;
   touch-action: auto;

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAudio } from '@/contexts/AudioContext';
-import { useUnlock } from '@/contexts/UnlockContext';
 
 interface LyricLine {
   time: number;
@@ -17,7 +16,6 @@ interface LyricsDisplayProps {
 
 export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisplayProps) {
   const { currentSong, currentTime, seek } = useAudio();
-  const { recordLyricsClick } = useUnlock();
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [currentLineIndex, setCurrentLineIndex] = useState(-1);
   const [translateY, setTranslateY] = useState(0);
@@ -126,7 +124,6 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
   // 点击歌词行跳转到对应时间
   const handleLineClick = (time: number) => {
     seek(time);
-    recordLyricsClick(); // 记录歌词点击，用于解锁系统
   };
 
   if (lyrics.length === 0) {

@@ -3,26 +3,16 @@
 // 解锁条件类型
 export type UnlockConditionType =
   | 'auto' // 自动解锁（第一首歌）
-  | 'listen_previous' // 听完上一首
-  | 'listen_count' // 听歌次数
-  | 'time_played' // 播放总时长
-  | 'lyrics_click' // 点击歌词次数
-  | 'manual'; // 手动解锁（用于测试）
+  | 'manual'; // 收集信号工具手动解锁
 
 export interface UnlockCondition {
   type: UnlockConditionType;
-  target?: number; // 目标值（如次数、时长等）
-  description: {
-    en: string;
-    zh: string;
-    ja: string;
-  };
+  description: string;
 }
 
 export interface Song {
   id: number;
   title: string;
-  titleEn: string;
   slug: string; // URL友好的标识符
   audioPath: string;
   lyricsPath: string;
@@ -34,11 +24,7 @@ export interface Song {
   genre?: string; // 音乐风格
   unlockCondition?: UnlockCondition; // 解锁条件
   intro?: string; // 歌曲简介
-  description?: {
-    en: string;
-    zh: string;
-    ja: string;
-  };
+  description?: string;
 }
 
 export interface Album {
@@ -61,7 +47,6 @@ export const albumData: Album = {
     {
       id: 1,
       title: "Tomorrow",
-      titleEn: "Tomorrow",
       slug: "tomorrow",
       audioPath: "/audio/songs/Tomorrow.mp3",
       lyricsPath: "/audio/lyrics/tomorrow-sample.lrc",
@@ -74,22 +59,13 @@ export const albumData: Album = {
       intro: "For you who want to work hard but are attached to comfort",
       unlockCondition: {
         type: 'manual',
-        description: {
-          en: "Collect the COSMIC AMPLIFIER tool",
-          zh: "收集宇宙放大器工具",
-          ja: "コスミックアンプリファイアツールを集める"
-        }
+        description: "Collect the COSMIC AMPLIFIER tool"
       },
-      description: {
-        en: "A journey into tomorrow",
-        zh: "通往明天的旅程",
-        ja: "明日への旅"
-      }
+      description: "A journey into tomorrow"
     },
     {
       id: 2,
       title: "The Real Reason",
-      titleEn: "The Real Reason",
       slug: "the-real-reason",
       audioPath: "/audio/songs/The Real Reason version4.mp3",
       lyricsPath: "/audio/lyrics/02-the-real-reason.lrc",
@@ -102,22 +78,13 @@ export const albumData: Album = {
       intro: "When you finally understand why you keep running away",
       unlockCondition: {
         type: 'manual',
-        description: {
-          en: "Collect the STELLAR NAVIGATOR tool",
-          zh: "收集星际导航仪工具",
-          ja: "ステラナビゲーターツールを集める"
-        }
+        description: "Collect the STELLAR NAVIGATOR tool"
       },
-      description: {
-        en: "Discovering the truth within",
-        zh: "发现内心的真相",
-        ja: "心の中の真実を発見"
-      }
+      description: "Discovering the truth within"
     },
     {
       id: 3,
       title: "Third Person",
-      titleEn: "Third Person",
       slug: "third-person",
       audioPath: "/audio/songs/Third Person.mp3",
       lyricsPath: "/audio/lyrics/03-third-person.lrc",
@@ -130,22 +97,13 @@ export const albumData: Album = {
       intro: "Sometimes you need to step back and see yourself clearly",
       unlockCondition: {
         type: 'auto',
-        description: {
-          en: "Unlocked by default",
-          zh: "默认解锁",
-          ja: "デフォルトで解放"
-        }
+        description: "Unlocked by default"
       },
-      description: {
-        en: "Watching from the outside",
-        zh: "从外部观察",
-        ja: "外から見る"
-      }
+      description: "Watching from the outside"
     },
     {
       id: 4,
       title: "Salmon and Potatoes",
-      titleEn: "Salmon and Potatoes",
       slug: "salmon-and-potatoes",
       audioPath: "/audio/songs/potato and  salmon version2.mp3",
       lyricsPath: "/audio/lyrics/04-salmon-and-potatoes.lrc",
@@ -158,22 +116,13 @@ export const albumData: Album = {
       intro: "Life's simple joys taste better when shared with someone special",
       unlockCondition: {
         type: 'manual',
-        description: {
-          en: "Collect the TEMPORAL DECODER tool",
-          zh: "收集时空解码器工具",
-          ja: "テンポラルデコーダーツールを集める"
-        }
+        description: "Collect the TEMPORAL DECODER tool"
       },
-      description: {
-        en: "A tale of simple pleasures",
-        zh: "简单快乐的故事",
-        ja: "シンプルな喜びの物語"
-      }
+      description: "A tale of simple pleasures"
     },
     {
       id: 5,
       title: "The Ascension",
-      titleEn: "The Ascension",
       slug: "the-ascension",
       audioPath: "/audio/songs/The Ascension.mp3",
       lyricsPath: "/audio/lyrics/05-the-ascension.lrc",
@@ -186,17 +135,9 @@ export const albumData: Album = {
       intro: "Rising above, reaching for the stars",
       unlockCondition: {
         type: 'manual',
-        description: {
-          en: "Collect the ASCENSION CORE tool",
-          zh: "收集飞升核心工具",
-          ja: "アセンションコアツールを集める"
-        }
+        description: "Collect the ASCENSION CORE tool"
       },
-      description: {
-        en: "A journey to new heights",
-        zh: "通向新高度的旅程",
-        ja: "新たな高みへの旅"
-      }
+      description: "A journey to new heights"
     }
   ]
 };

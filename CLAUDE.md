@@ -28,7 +28,7 @@ CI (`.github/workflows/ci.yml`) runs `tsc → lint → test → build` on every 
 - `app/page.tsx` — homepage: `Navigation` + `CosmicVoyage` + `Footer`
 - `app/song/[slug]/page.tsx` — per-song page (lyrics, unlock status), driven by `data/albumData.ts`
 - `app/api/subscribe/route.ts` — email subscribe endpoint; not currently called from any UI (the form/hook that used to call it, `hooks/useEmailSubscription.ts`, isn't wired to a page)
-- `app/layout.tsx` mounts the global providers plus `GlobalAudioPlayer` and `UnlockTracker`, which render on every route
+- `app/layout.tsx` mounts the global providers plus `GlobalAudioPlayer`, which renders on every route
 
 ### CosmicVoyage
 `components/CosmicVoyage.tsx` is the homepage's main component; it orchestrates state and layout only. Its pieces live in `components/cosmic-voyage/`:
@@ -40,12 +40,13 @@ CI (`.github/workflows/ci.yml`) runs `tsc → lint → test → build` on every 
 `components/Planet.tsx` is a generic fallback planet visual, only used when a song has no `planetImage` (currently none — every song in `albumData` sets one).
 
 ### Contexts (all provided in `app/layout.tsx`)
-- `AudioContext` — playback state for `GlobalAudioPlayer`
-- `UnlockContext` — song/tool unlock logic, persisted to `localStorage`; collected tools intentionally reset each session (so the chase mini-game replays) while unlocked songs persist
-- `LanguageContext` — i18n (`en`/`zh`/`ja`), used by `Footer.tsx` and the song page. **There is currently no language-switcher UI** — the context and translations work, but nothing in `Navigation.tsx` lets a user change language yet.
+- `AudioContext` — playback state for `GlobalAudioPlayer`; all exposed methods are memoized with `useCallback` so consumers (e.g. the song page's effects) don't re-fire on every `currentTime` tick
+- `UnlockContext` — song/tool unlock logic, persisted to `localStorage`; collected tools intentionally reset each session (so the chase mini-game replays) while unlocked songs persist. Unlock is intentionally binary: `auto` (the one free starter song) or `manual` (collect the matching signal tool) — there's no listen-time/click-count/etc. tracking, so don't reintroduce it without a product reason.
+
+The site is English-only by design (no i18n) — don't reintroduce a language switcher or multi-locale content without checking with the project owner first; it was deliberately removed.
 
 ### Data
-`data/albumData.ts` defines the album/song list, including each song's `unlockCondition` (`auto`, `manual`, or a still-unused set of types — `listen_previous`, `time_played`, `lyrics_click`, `listen_count` — that `UnlockContext` implements but no current song config uses).
+`data/albumData.ts` defines the album/song list, including each song's `unlockCondition` (`auto` or `manual`).
 
 ### Testing
 Vitest + React Testing Library (`vitest.config.ts`, jsdom environment). Tests focus on logic, not animation/visual rendering:
@@ -67,5 +68,6 @@ All images go through `next/image`. Large/variable-size visuals use `fill` + `si
 
 ## Notes for future work
 
-- `Navigation.tsx` needs a language switcher hooked up to `LanguageContext` if trilingual support is meant to be user-facing.
 - `app/api/subscribe/route.ts` and `hooks/useEmailSubscription.ts` are currently orphaned (no caller) — either wire them up or remove them.
+- No product analytics/event tracking yet — there's no way to see unlock-funnel drop-off (how many visitors collect all 4 signal tools, where they quit).
+- No mobile-specific QA has been done; the scroll-jacked homepage and the pointer-drag chase mini-game are both worth testing on real touch devices.
