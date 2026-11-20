@@ -331,7 +331,7 @@ export default function CosmicVoyage() {
         <div className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-[0.9fr_1.1fr] md:items-end">
           <div>
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.34em] text-cyan-100/42">SIGNAL TOOLS</p>
-            <h2 className="text-5xl font-black leading-none md:text-7xl">Collect the missing keys.</h2>
+            <h2 className="font-script text-5xl leading-none md:text-7xl">Collect the missing keys.</h2>
           </div>
           <p className="max-w-xl text-base leading-8 text-white/58">
             Locked planets are opened by collecting their matching signal tool. Choose a tool below to add it to the ship archive and unlock its song.

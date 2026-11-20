@@ -7,6 +7,7 @@ import { getSongBySlug } from '@/data/albumData';
 import { useAudio } from '@/contexts/AudioContext';
 import { useUnlock } from '@/contexts/UnlockContext';
 import LyricsDisplay from '@/components/LyricsDisplay';
+import SongTitle from '@/components/SongTitle';
 
 const songWorlds: Record<string, {
   signal: string;
@@ -197,7 +198,14 @@ export default function SongPage() {
               <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.34em]" style={{ color: `${world.accent}aa` }}>
                 {world.signal}
               </p>
-              <h1 className="text-6xl font-black leading-none md:text-8xl">{song.title}</h1>
+              <SongTitle
+                as="h1"
+                title={song.title}
+                titleImage={song.titleImage}
+                sizes="(min-width: 768px) 720px, 90vw"
+                className={song.titleImage ? 'mx-auto w-full max-w-[720px]' : 'text-6xl leading-none md:text-8xl'}
+                imageClassName="max-h-[34vh] object-contain"
+              />
               <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/54">{world.atmosphere}</p>
             </div>
 

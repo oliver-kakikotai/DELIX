@@ -112,7 +112,7 @@ export function OriginFile() {
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.34em] text-cyan-100/48">
               Origin File / DELIX IP
             </p>
-            <h2 className="text-5xl font-black leading-none md:text-7xl">
+            <h2 className="font-script text-5xl leading-none md:text-7xl">
               The last signal from a dead world.
             </h2>
             <p className="mt-6 max-w-xl text-base leading-8 text-white/62">

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 
@@ -100,14 +101,23 @@ export default function Footer() {
         {/* ── Giant headline ── */}
         <div className="overflow-hidden border-b border-black/[0.08] px-4 pb-2 pt-14 md:px-8">
           <motion.h2
-            className="select-none font-black leading-[0.82] tracking-tight text-black"
-            style={{ fontSize: 'clamp(4.5rem, 17vw, 16rem)' }}
+            className="select-none"
+            style={{ width: 'clamp(18rem, 64vw, 60rem)' }}
             initial={{ y: '18%', opacity: 0 }}
             whileInView={{ y: '0%', opacity: 1 }}
             viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
           >
-            DELIX
+            {/* The logo file is white-on-transparent; brightness(0) renders it
+                black to sit on the acid-yellow footer. */}
+            <Image
+              src="/images/白色手写体 Delix 环形标志.png"
+              alt="DELIX"
+              width={2172}
+              height={724}
+              sizes="(min-width: 1500px) 960px, 64vw"
+              className="h-auto w-full brightness-0"
+            />
           </motion.h2>
         </div>
 

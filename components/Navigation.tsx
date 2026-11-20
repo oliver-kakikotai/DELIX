@@ -47,7 +47,7 @@ function Navigation() {
 
   return (
     <nav className="pointer-events-none fixed inset-x-0 top-0 z-[60]">
-      <div className="px-4 py-4 lg:px-7">
+      <div className="relative z-10 px-4 py-4 lg:px-7">
         <div className="mx-auto flex max-w-[1500px] items-start justify-between gap-4">
           <Link
             href="/"
@@ -57,10 +57,10 @@ function Navigation() {
             }`}
           >
             <Image
-              src="/images/LOGO.png"
+              src="/images/白色手写体 Delix 环形标志.png"
               alt="DELIX"
-              width={1170}
-              height={1118}
+              width={2172}
+              height={724}
               priority
               className="h-9 w-auto lg:h-11"
             />
@@ -84,10 +84,24 @@ function Navigation() {
               className="group relative flex h-12 w-12 items-center justify-center rounded-full border border-cyan-100/25 bg-black/55 text-cyan-50 shadow-[0_10px_35px_rgba(0,0,0,0.4)] backdrop-blur-xl transition hover:border-cyan-100/60 hover:bg-cyan-100/10"
             >
               <span className="absolute inset-1 rounded-full border border-white/10" />
-              <span className="relative flex h-4 w-4 items-center justify-center">
-                <span className={`absolute h-px w-4 bg-current transition-transform duration-300 ${isMenuOpen ? 'rotate-45' : '-translate-y-1.5'}`} />
-                <span className={`absolute h-px w-4 bg-current transition-opacity duration-300 ${isMenuOpen ? 'opacity-0' : 'opacity-100'}`} />
-                <span className={`absolute h-px w-4 bg-current transition-transform duration-300 ${isMenuOpen ? '-rotate-45' : 'translate-y-1.5'}`} />
+              {/* Four-point star echoing the star in the DELIX logo. Closed: it
+                  twinkles and quarter-turns on hover. Open: it spins away and
+                  two strokes cross into an ✕ in its place. */}
+              <span className="relative flex h-5 w-5 items-center justify-center">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className={`absolute h-5 w-5 fill-current drop-shadow-[0_0_6px_rgba(207,250,254,0.75)] transition-all duration-500 ease-out ${
+                    isMenuOpen ? 'rotate-[135deg] scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100 group-hover:rotate-90'
+                  }`}
+                >
+                  <path
+                    className="origin-center [transform-box:fill-box] motion-safe:[animation:nav-star-twinkle_3.2s_ease-in-out_infinite]"
+                    d="M12 1C12.9 7.5 16.5 11.1 23 12C16.5 12.9 12.9 16.5 12 23C11.1 16.5 7.5 12.9 1 12C7.5 11.1 11.1 7.5 12 1Z"
+                  />
+                </svg>
+                <span className={`absolute h-[1.5px] w-4 rounded-full bg-current transition-all duration-500 ease-out ${isMenuOpen ? 'rotate-45 scale-100 opacity-100' : 'rotate-0 scale-0 opacity-0'}`} />
+                <span className={`absolute h-[1.5px] w-4 rounded-full bg-current transition-all duration-500 ease-out ${isMenuOpen ? '-rotate-45 scale-100 opacity-100' : 'rotate-0 scale-0 opacity-0'}`} />
               </span>
             </button>
           </div>
@@ -102,8 +116,11 @@ function Navigation() {
           closing are mirror images instead of two independently-timed
           transitions. `menuAnimation` only gets set after the first toggle
           so this doesn't play the close keyframes on initial mount. */}
+      {/* Anchored to the very top of the viewport (behind the logo/button
+          row, which sits above it via z-10) so no strip of the page shows
+          between the screen edge and the panel while the menu is open. */}
       <div
-        className={`w-full origin-center overflow-hidden border-b border-black/10 bg-[#D9FF12] shadow-[0_30px_90px_rgba(0,0,0,0.45)] ${
+        className={`absolute inset-x-0 top-0 w-full origin-center overflow-hidden border-b border-black/10 bg-[#D9FF12] shadow-[0_30px_90px_rgba(0,0,0,0.45)] ${
           isMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'
         } ${
           menuAnimation === 'open'
@@ -114,7 +131,7 @@ function Navigation() {
         }`}
       >
         <div
-          className={`mx-auto grid max-w-[1500px] grid-cols-1 gap-8 px-5 py-10 md:grid-cols-3 md:gap-10 lg:px-7 transition-opacity ${
+          className={`mx-auto grid max-w-[1500px] grid-cols-1 gap-8 px-5 pb-10 pt-24 md:grid-cols-3 lg:pt-28 md:gap-10 lg:px-7 transition-opacity ${
             isMenuOpen ? 'opacity-100 duration-200 delay-[380ms]' : 'opacity-0 duration-150'
           }`}>
           <div>

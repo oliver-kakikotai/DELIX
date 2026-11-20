@@ -5,6 +5,8 @@ import { motion, MotionValue, useMotionValueEvent, useTransform } from 'framer-m
 import Image from 'next/image';
 import Planet from '../Planet';
 import { VoyageSong } from './data';
+import SongTitle from '@/components/SongTitle';
+import { getCardShape } from './cardShapes';
 
 export function VoyagePlanet({
   song,
@@ -48,9 +50,11 @@ export function VoyagePlanet({
     ['28vh', '0vh', '0vh', '-34vh']
   );
   const depthGlow = useTransform(progress, song.path.range, [0, 0.12, 0.28, 0.28, 0]);
+  // A side card on the left or right, alternating per song. On phones it's a
+  // narrow portrait card hugging the edge so the planet stays visible.
   const infoPlacementClass = song.path.infoPlacement === 'left'
-    ? 'left-[7vw]'
-    : 'right-[7vw]';
+    ? 'left-[4vw] md:left-[7vw]'
+    : 'right-[4vw] md:right-[7vw]';
 
   return (
     <>
@@ -91,14 +95,38 @@ export function VoyagePlanet({
           type="button"
           onClick={onClick}
           aria-label={song.unlocked ? `Open ${song.title}` : `${song.title} is locked`}
-          className={`pointer-events-auto fixed bottom-[12vh] z-40 w-[min(42vw,480px)] rounded-2xl border border-black/10 bg-[#D9FF12] px-6 py-5 text-left shadow-[0_20px_80px_rgba(0,0,0,0.35)] ${infoPlacementClass}`}
+          className={`pointer-events-auto fixed bottom-[12vh] z-40 w-[46vw] max-w-[240px] px-5 pb-7 pt-9 text-left md:w-[min(42vw,480px)] md:max-w-none md:px-9 md:pb-8 md:pt-11 ${infoPlacementClass}`}
           style={{ y: infoY, opacity: infoOpacity }}
         >
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.34em] text-black/55">
+          {/* Per-song irregular card shape, stretched to the card's box: a
+              portrait variant on phones, a landscape one from md up. The
+              button is its own stacking context (fixed + z-40), so -z-10 keeps
+              these behind the text but still inside the card. */}
+          {(['tall', 'wide'] as const).map((variant) => (
+            <svg
+              key={variant}
+              aria-hidden="true"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className={`pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible drop-shadow-[0_20px_40px_rgba(0,0,0,0.4)] ${
+                variant === 'tall' ? 'md:hidden' : 'hidden md:block'
+              }`}
+            >
+              <path d={getCardShape(song.slug, variant)} fill="#D9FF12" />
+            </svg>
+          ))}
+          <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.22em] text-black/55 md:text-[10px] md:tracking-[0.34em]">
             {song.unlocked ? 'UNLOCKED SIGNAL' : 'LOCKED SIGNAL'}
           </p>
-          <h2 className="text-3xl font-black leading-none text-black md:text-5xl">{song.title}</h2>
-          <p className="mt-4 max-w-md text-sm leading-7 text-black/65">
+          <SongTitle
+            title={song.title}
+            titleImage={song.titleImage}
+            dark
+            sizes="(min-width: 768px) 420px, 46vw"
+            className={song.titleImage ? 'w-full max-w-[420px]' : 'text-2xl leading-none text-black md:text-6xl'}
+            imageClassName="max-h-[18vh] object-contain object-left"
+          />
+          <p className="mt-3 line-clamp-6 max-w-md text-xs leading-5 text-black/65 md:mt-4 md:line-clamp-none md:text-sm md:leading-7">
             {song.intro || song.description || 'A passing world in the DELIX archive.'}
           </p>
         </motion.button>

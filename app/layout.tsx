@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Archivo } from "next/font/google";
+import { Archivo, Yellowtail } from "next/font/google";
 import "./globals.css";
 import { AudioProvider } from '@/contexts/AudioContext';
 import { UnlockProvider } from '@/contexts/UnlockContext';
@@ -15,6 +15,10 @@ const archivo = Archivo({
   weight: "variable",
   display: "swap",
 });
+
+// Handwritten display face echoing the DELIX logo, used via `.font-script`
+// for headline-level text (song titles use wordmark images instead).
+const yellowtail = Yellowtail({ variable: "--font-yellowtail", subsets: ["latin"], weight: "400", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Runaway Rabbit - Original IP Character",
@@ -52,7 +56,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#000000" />
       </head>
       <body
-        className={`${archivo.variable} antialiased bg-black`}
+        className={`${archivo.variable} ${yellowtail.variable} antialiased bg-black`}
       >
         <UnlockProvider>
           <AudioProvider>

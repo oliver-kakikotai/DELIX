@@ -18,6 +18,9 @@ export interface Song {
   lyricsPath: string;
   coverPath?: string;
   planetImage?: string; // 星球图片路径
+  // Hand-lettered title wordmark (white on transparent, ~3:1) matching the
+  // DELIX logo. When absent, the title falls back to the .font-script face.
+  titleImage?: string;
   duration?: string; // 歌曲时长 "3:45"
   unlocked: boolean; // 是否解锁
   color?: string; // 主题色
@@ -52,6 +55,7 @@ export const albumData: Album = {
       lyricsPath: "/audio/lyrics/tomorrow-sample.lrc",
       coverPath: "/audio/covers/01-tomorrow.jpg",
       planetImage: "/images/planet1.png",
+      titleImage: "/images/白色手写体“Tomorrow”闪耀字标.png",
       duration: "3:30",
       unlocked: false,
       color: "#FFD700", // 金色
@@ -71,6 +75,7 @@ export const albumData: Album = {
       lyricsPath: "/audio/lyrics/02-the-real-reason.lrc",
       coverPath: "/audio/covers/02-the-real-reason.jpg",
       planetImage: "/images/planet3.png",
+      titleImage: "/images/白色手写体「The Real Reason」logo.png",
       duration: "4:15",
       unlocked: false,
       color: "#9B59B6", // 紫色
@@ -90,6 +95,7 @@ export const albumData: Album = {
       lyricsPath: "/audio/lyrics/03-third-person.lrc",
       coverPath: "/audio/covers/03-third-person.jpg",
       planetImage: "/images/planet2.png",
+      titleImage: "/images/第三人称白色手写标志.png",
       duration: "3:52",
       unlocked: true,
       color: "#3498DB", // 蓝色
@@ -109,6 +115,7 @@ export const albumData: Album = {
       lyricsPath: "/audio/lyrics/04-salmon-and-potatoes.lrc",
       coverPath: "/audio/covers/04-salmon-and-potatoes.jpg",
       planetImage: "/images/planet4.png",
+      titleImage: "/images/白色手写体三文鱼与土豆标志.png",
       duration: "3:20",
       unlocked: false,
       color: "#E74C3C", // 红橙色
@@ -128,6 +135,7 @@ export const albumData: Album = {
       lyricsPath: "/audio/lyrics/05-the-ascension.lrc",
       coverPath: "/audio/covers/05-the-ascension.jpg",
       planetImage: "/images/space.png",
+      titleImage: "/images/白色流畅手写体“The Ascension”标志.png",
       duration: "4:00",
       unlocked: false,
       color: "#1ABC9C", // 青绿色

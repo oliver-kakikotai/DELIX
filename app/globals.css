@@ -11,6 +11,21 @@
   --font-sans: var(--font-archivo);
 }
 
+/* Handwritten display face that echoes the DELIX logo. Used only for
+   headline-level text (section titles; song titles fall back to it when they
+   have no wordmark image). Body copy stays Archivo. */
+:root {
+  --font-script: var(--font-yellowtail);
+}
+
+.font-script {
+  font-family: var(--font-script), cursive;
+  font-weight: 400;
+  /* Script ascenders/descenders and tails overflow a 1.0 line box. */
+  line-height: 1.15 !important;
+  padding-block: 0.06em;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -1427,6 +1442,11 @@ html {
    a jump/flash right before the panel disappeared instead of a smooth
    shrink. The element stays full-width in the layout at all times; only
    its rendered scale changes. */
+@keyframes nav-star-twinkle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.78); opacity: 0.65; }
+}
+
 @keyframes nav-panel-open {
   0% { transform: scaleX(0); clip-path: inset(0 0 100% 0); }
   35% { transform: scaleX(0.333334); clip-path: inset(0 0 100% 0); }
