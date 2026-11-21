@@ -115,6 +115,7 @@ export function VoyagePlanet({
           <SongTitle
             title={song.title}
             titleImage={song.titleImage}
+            titleImageDark={song.titleImageDark}
             dark
             sizes="(min-width: 768px) 420px, 46vw"
             className={song.titleImage ? 'w-full max-w-[420px]' : 'text-2xl leading-none text-black md:text-6xl'}

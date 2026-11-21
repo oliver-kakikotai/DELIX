@@ -9,10 +9,10 @@ import { useUnlock } from '@/contexts/UnlockContext';
 import { flightPaths, LockedMission, signalTools, SignalTool } from './cosmic-voyage/data';
 import { Model3DGate, PhaseWarning } from './cosmic-voyage/ProgressGates';
 import { VoyagePlanet } from './cosmic-voyage/VoyagePlanet';
-import { PocketRecoveryGame } from './cosmic-voyage/PocketRecoveryGame';
 import { OriginFile } from './cosmic-voyage/OriginFile';
 import { LockedSignalAlert } from './cosmic-voyage/LockedSignalAlert';
 import { SongUnlockedAlert } from './cosmic-voyage/SongUnlockedAlert';
+import { AlbumCompleteFinale } from './cosmic-voyage/AlbumCompleteFinale';
 import { SignalToolsSection } from './cosmic-voyage/SignalToolsSection';
 import StarField from './StarField';
 import { starField } from './cosmic-voyage/data';
@@ -99,10 +99,13 @@ export default function CosmicVoyage() {
   // The tool just recovered; SongUnlockedAlert shows the song it unlocked.
   const [unlockedTool, setUnlockedTool] = useState<SignalTool | null>(null);
   const closeUnlocked = useCallback(() => setUnlockedTool(null), []);
+  // Set once the last tool is recovered: the album-complete finale (with
+  // this song marked new) shows instead of the single-song popup.
+  const [finaleSongId, setFinaleSongId] = useState<number | null>(null);
+  const closeFinale = useCallback(() => setFinaleSongId(null), []);
   const [focusedToolId, setFocusedToolId] = useState(signalTools[0].id);
-  const [recoveryToolId, setRecoveryToolId] = useState<number | null>(null);
   // Which tool's static left-side button should duck out of the way because
-  // a PocketRecoveryGame's wandering pocket is currently standing in for it.
+  // the PocketRecoveryGame's wandering pocket is currently standing in for it.
   const [chasedToolId, setChasedToolId] = useState<number | null>(null);
 
   // Reactively watch collectedTools — most reliable way to trigger the notification.
@@ -117,7 +120,9 @@ export default function CosmicVoyage() {
     const newId = current.find((id) => !prevCollectedRef.current.includes(id));
     if (newId !== undefined) {
       const tool = signalTools.find((t) => t.id === newId);
-      if (tool) setUnlockedTool(tool);
+      const allRecovered = signalTools.every((t) => current.includes(t.id));
+      if (tool && allRecovered) setFinaleSongId(tool.songId);
+      else if (tool) setUnlockedTool(tool);
     }
     prevCollectedRef.current = current;
   }, [stats.collectedTools]);
@@ -186,14 +191,14 @@ export default function CosmicVoyage() {
   const handleCollectTool = (tool: SignalTool) => {
     collectTool(tool.id);
     setSelectedLocked(null);
-    setRecoveryToolId(null);
     // The unlock popup opens from the collectedTools effect above.
   };
 
   const handleInspectTool = (tool: SignalTool) => {
     if (checkToolCollected(tool.id)) return;
+    // Just highlights the tool; the game itself (one instance, in
+    // SignalToolsSection) is played by dragging.
     setFocusedToolId(tool.id);
-    setRecoveryToolId(tool.id);
   };
 
   return (
@@ -265,7 +270,7 @@ export default function CosmicVoyage() {
                 "Collect the missing keys" heading). */}
             <h2 className="mx-auto mt-4 w-[min(88vw,760px)]">
               <Image
-                src="/images/地球奇遇与星光签名.png"
+                src="/images/earth-life-was-strange.png"
                 alt="Earth life was strange, so was Delix."
                 width={2172}
                 height={724}
@@ -312,42 +317,13 @@ export default function CosmicVoyage() {
         onFindKey={scrollToTools}
         onClose={closeLockedAlert}
       />
-      {recoveryToolId !== null && (
-        <div className="fixed bottom-6 left-1/2 z-[78] w-[min(92vw,520px)] -translate-x-1/2 rounded-2xl border border-cyan-100/20 bg-black/88 p-5 shadow-[0_20px_90px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-          {(() => {
-            const recoveryTool = signalTools.find((tool) => tool.id === recoveryToolId);
-            if (!recoveryTool) return null;
-            return (
-              <>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-100/48">Signal detected / Recovery game</p>
-                <h3 className="mt-2 text-2xl font-black text-white">{recoveryTool.name}</h3>
-                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/42">Unlocks {recoveryTool.unlocksSong}</p>
-                <p className="mt-4 text-sm leading-6 text-white/58">{recoveryTool.clue}</p>
-                <PocketRecoveryGame
-                  tools={signalTools}
-                  checkCollected={checkToolCollected}
-                  onCollect={(toolId) => {
-                    const t = signalTools.find((st) => st.id === toolId);
-                    if (t) handleCollectTool(t);
-                  }}
-                  onActiveToolChange={setChasedToolId}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRecoveryToolId(null);
-                    setChasedToolId(null);
-                  }}
-                  className="mt-3 w-full text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35 transition hover:text-white/70"
-                >
-                  Cancel scan
-                </button>
-              </>
-            );
-          })()}
-        </div>
-      )}
       <SongUnlockedAlert tool={unlockedTool} onEnter={goToSong} onClose={closeUnlocked} />
+      <AlbumCompleteFinale
+        open={finaleSongId !== null}
+        newSongId={finaleSongId}
+        onOpenSong={goToSong}
+        onClose={closeFinale}
+      />
     </main>
   );
 }

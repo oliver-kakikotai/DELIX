@@ -3,11 +3,15 @@ import Image from 'next/image';
 type SongTitleProps = {
   title: string;
   titleImage?: string;
+  /** Black copy of the wordmark, used when `dark` is set. */
+  titleImageDark?: string;
   /** Heading element to render (h1 on the song page, h2 on planet cards). */
   as?: 'h1' | 'h2' | 'h3';
   /** Applied to the heading. With an image, sizes it via width; without, styles the text. */
   className?: string;
-  /** Render the (white) wordmark as black, for light backgrounds. */
+  /** Render the wordmark in black, for light backgrounds. Uses
+      titleImageDark when given; otherwise falls back to a CSS filter, which
+      doesn't render reliably on mobile Safari. */
   dark?: boolean;
   /** next/image `sizes` hint for the wordmark. */
   sizes?: string;
@@ -21,6 +25,7 @@ type SongTitleProps = {
 export default function SongTitle({
   title,
   titleImage,
+  titleImageDark,
   as: Tag = 'h2',
   className = '',
   dark = false,
@@ -35,12 +40,12 @@ export default function SongTitle({
     <Tag className={className}>
       {/* Wordmark files are 2172×724 (3:1), white on transparent. */}
       <Image
-        src={titleImage}
+        src={dark && titleImageDark ? titleImageDark : titleImage}
         alt={title}
         width={2172}
         height={724}
         sizes={sizes}
-        className={`h-auto w-full ${dark ? 'brightness-0' : ''} ${imageClassName}`}
+        className={`h-auto w-full ${dark && !titleImageDark ? 'brightness-0' : ''} ${imageClassName}`}
       />
     </Tag>
   );

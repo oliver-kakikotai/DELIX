@@ -16,6 +16,7 @@ npm run lint          # ESLint (next/core-web-vitals + next/typescript)
 npx tsc --noEmit      # type check
 npm test              # run tests once (Vitest)
 npm run test:watch    # Vitest watch mode
+npm run make:black-wordmarks # regenerate black copies of song-title/logo wordmarks (public/images/black/) after changing one
 npm run bake:engraving # re-bake the rock's "Hola, this is Delix" decal after changing the model or components/engravingConfig.json
 ```
 
@@ -37,6 +38,7 @@ CI (`.github/workflows/ci.yml`) runs `tsc → lint → test → build` on every 
 - `VoyagePlanet.tsx` — planets during the flight-through phase (the tools/keys deliberately appear only in the game section, not among the planets)
 - `LockedSignalAlert.tsx` — pop-up when a locked planet is clicked (key required, keys recovered, jump to the game)
 - `SongUnlockedAlert.tsx` — pop-up after a tool is recovered, showing the song it unlocked (derived from the tool; opened by the `collectedTools` effect in CosmicVoyage)
+- `AlbumCompleteFinale.tsx` — shown instead of SongUnlockedAlert when the last tool is recovered: full album tracklist + "play the whole album"
 - `SignalToolsSection.tsx` — the whole game chapter: tool buttons (slot positions clear of the card's label/pressure bar), the chase game, and `SignalSlots`
 - `SignalToolButton.tsx` / `PocketRecoveryGame.tsx` — the signal-tools section and its chase mini-game (canvas-based, imperative render loop)
 - `ProgressGates.tsx` — `Model3DGate` (pauses the 3D model's render loop off-phase) and `PhaseWarning` (bottom-center hazard-stripe phase tag + playful quip, one phase set per section), both isolated so per-frame scroll updates don't re-render the whole tree

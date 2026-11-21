@@ -57,7 +57,7 @@ function Navigation() {
             }`}
           >
             <Image
-              src="/images/白色手写体 Delix 环形标志.png"
+              src="/images/delix-logo.png"
               alt="DELIX"
               width={2172}
               height={724}

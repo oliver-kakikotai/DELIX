@@ -14,7 +14,10 @@
 /* Handwritten display face that echoes the DELIX logo. Used only for
    headline-level text (section titles; song titles fall back to it when they
    have no wordmark image). Body copy stays Archivo. */
-:root {
+/* Defined on body, not :root: next/font puts --font-yellowtail on <body>,
+   so at :root it's undefined and --font-script resolved to nothing — every
+   .font-script element silently fell back to Archivo. */
+body {
   --font-script: var(--font-yellowtail);
 }
 

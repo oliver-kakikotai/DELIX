@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   albumData,
@@ -8,6 +10,16 @@ import {
 } from './albumData';
 
 describe('albumData integrity', () => {
+  // Light-background cards need the black wordmark (a CSS filter on the
+  // white one doesn't render on mobile Safari) — run
+  // `npm run make:black-wordmarks` after adding a title image.
+  it('has a black wordmark file for every song title image', () => {
+    for (const song of albumData.songs.filter((s) => s.titleImage)) {
+      expect(song.titleImageDark, song.slug).toBeTruthy();
+      expect(fs.existsSync(path.join(process.cwd(), 'public', song.titleImageDark!)), song.slug).toBe(true);
+    }
+  });
+
   it('has a unique slug per song', () => {
     const slugs = albumData.songs.map((song) => song.slug);
     expect(new Set(slugs).size).toBe(slugs.length);

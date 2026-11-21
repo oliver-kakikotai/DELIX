@@ -79,12 +79,12 @@ export function SignalSlots({
               <div className="mt-2 flex h-10 items-center justify-center md:h-14">
                 {collected && song?.titleImage ? (
                   <Image
-                    src={song.titleImage}
+                    src={song.titleImageDark ?? song.titleImage}
                     alt={song.title}
                     width={2172}
                     height={724}
                     sizes="(min-width: 768px) 220px, 40vw"
-                    className="h-full w-auto max-w-full object-contain brightness-0"
+                    className={`h-full w-auto max-w-full object-contain ${song.titleImageDark ? '' : 'brightness-0'}`}
                   />
                 ) : collected && song ? (
                   <span className="font-script text-xl text-black">{song.title}</span>

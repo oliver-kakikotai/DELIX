@@ -112,7 +112,7 @@ export default function Footer() {
                 It used to be the white file with a CSS brightness(0) filter,
                 which didn't render on mobile Safari inside this animated h2. */}
             <Image
-              src="/images/delix-logo-black.png"
+              src="/images/black/delix-logo.png"
               alt="DELIX"
               width={2172}
               height={724}

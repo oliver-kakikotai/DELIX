@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useRef, useEffect, useCallback, ReactNode } from 'react';
 import { Song, albumData } from '@/data/albumData';
+import { useUnlock } from './UnlockContext';
 
 interface AudioContextType {
   // 当前播放的歌曲
@@ -40,6 +41,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [loop, setLoop] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Next/previous step through the songs this visitor has unlocked
+  // (UnlockContext), not just the ones unlocked by default in albumData.
+  const { checkUnlock } = useUnlock();
+  // The 'ended' listener is attached once, so it reads the latest loop
+  // setting and the auto-advance function through refs. (It used to capture the first
+  // render's playNext — when nothing was playing yet — so a finished song
+  // never advanced; and re-attaching on every loop toggle recreated the
+  // <audio> element.)
+  const loopRef = useRef(loop);
+  const autoAdvanceRef = useRef<() => void>(() => {});
 
   // 初始化音频元素
   useEffect(() => {
@@ -60,12 +71,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
     // 监听播放结束
     const handleEnded = () => {
-      if (loop) {
+      if (loopRef.current) {
         audio.currentTime = 0;
         audio.play();
       } else {
         setIsPlaying(false);
-        playNext();
+        autoAdvanceRef.current();
       }
     };
 
@@ -79,6 +90,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('ended', handleEnded);
       audio.pause();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- create the element once; initial volume only
+  }, []);
+
+  useEffect(() => {
+    loopRef.current = loop;
   }, [loop]);
 
   const startSong = useCallback((song: Song) => {
@@ -180,7 +196,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (!currentSong) return;
 
     // 只播放已解锁的歌曲
-    const unlockedSongs = albumData.songs.filter(song => song.unlocked);
+    const unlockedSongs = albumData.songs.filter(song => checkUnlock(song.id));
     const currentIndex = unlockedSongs.findIndex(song => song.id === currentSong.id);
 
     if (currentIndex < 0) return;
@@ -188,14 +204,30 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 如果不是最后一首，播放下一首；否则循环到第一首
     const nextIndex = (currentIndex + 1) % unlockedSongs.length;
     playSong(unlockedSongs[nextIndex]);
-  }, [currentSong, playSong]);
+  }, [currentSong, playSong, checkUnlock]);
+
+  // When a song ends: play the next *unlocked* song in album order, and stop
+  // after the last one — no wrap-around, and a lone unlocked song doesn't
+  // repeat (the player's loop button is there for that). Unlike playNext
+  // (the ⏭ button), which wraps.
+  const autoAdvance = useCallback(() => {
+    if (!currentSong) return;
+    const unlockedSongs = albumData.songs.filter(song => checkUnlock(song.id));
+    const currentIndex = unlockedSongs.findIndex(song => song.id === currentSong.id);
+    const next = currentIndex >= 0 ? unlockedSongs[currentIndex + 1] : undefined;
+    if (next) startSong(next);
+  }, [currentSong, checkUnlock, startSong]);
+
+  useEffect(() => {
+    autoAdvanceRef.current = autoAdvance;
+  }, [autoAdvance]);
 
   // 播放上一首
   const playPrevious = useCallback(() => {
     if (!currentSong) return;
 
     // 只播放已解锁的歌曲
-    const unlockedSongs = albumData.songs.filter(song => song.unlocked);
+    const unlockedSongs = albumData.songs.filter(song => checkUnlock(song.id));
     const currentIndex = unlockedSongs.findIndex(song => song.id === currentSong.id);
 
     if (currentIndex < 0) return;
@@ -203,7 +235,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     // 如果不是第一首，播放上一首；否则循环到最后一首
     const prevIndex = currentIndex === 0 ? unlockedSongs.length - 1 : currentIndex - 1;
     playSong(unlockedSongs[prevIndex]);
-  }, [currentSong, playSong]);
+  }, [currentSong, playSong, checkUnlock]);
 
   const value: AudioContextType = {
     currentSong,

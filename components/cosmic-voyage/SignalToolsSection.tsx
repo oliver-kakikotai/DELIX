@@ -83,7 +83,7 @@ export function SignalToolsSection({
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.34em] text-white/45">SIGNAL TOOLS</p>
               <h2 className="w-full max-w-[640px]">
                 <Image
-                  src="/images/收集遗失的钥匙.png"
+                  src="/images/collect-the-missing-keys.png"
                   alt="Collect the missing keys."
                   width={2172}
                   height={724}
