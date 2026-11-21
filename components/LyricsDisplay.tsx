@@ -12,9 +12,11 @@ interface LyricLine {
 interface LyricsDisplayProps {
   lyricsPath?: string;
   className?: string;
+  /** The song world's accent colour (hex) — current-line glow + progress bar. */
+  accent?: string;
 }
 
-export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisplayProps) {
+export default function LyricsDisplay({ lyricsPath, className = '', accent = '#ffffff' }: LyricsDisplayProps) {
   const { currentSong, currentTime, seek } = useAudio();
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [currentLineIndex, setCurrentLineIndex] = useState(-1);
@@ -129,8 +131,8 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
   if (lyrics.length === 0) {
     return (
       <div className={`flex items-center justify-center ${className}`}>
-        <p className="text-gray-400 text-center">
-          No lyrics available
+        <p className="text-center text-sm uppercase tracking-[0.28em] text-white/45">
+          No lyrics for this signal
         </p>
       </div>
     );
@@ -140,63 +142,59 @@ export default function LyricsDisplay({ lyricsPath, className = '' }: LyricsDisp
     <div
       ref={lyricsContainerRef}
       className={`overflow-hidden ${className}`}
-      style={{ position: 'relative' }}
+      style={{
+        position: 'relative',
+        // Soft fade at the top and bottom instead of a hard-edged box.
+        maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+      }}
     >
       <motion.div
-        className="py-20 px-6"
+        className="px-2 py-24 md:px-4"
         animate={{ y: translateY }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       >
         {lyrics.map((line, index) => {
           const isCurrent = index === currentLineIndex;
           const isPast = index < currentLineIndex;
-          const isFuture = index > currentLineIndex;
 
           return (
             <motion.div
               key={`${line.time}-${index}`}
               data-line-index={index}
               onClick={() => handleLineClick(line.time)}
-              className={`
-                relative py-3 px-4 my-2 rounded-lg cursor-pointer transition-all duration-300
-                ${isCurrent ? 'text-white text-2xl font-bold' : ''}
-                ${isPast ? 'text-gray-500 text-lg' : ''}
-                ${isFuture ? 'text-gray-600 text-lg' : ''}
-                hover:bg-white/5 hover:text-white
-              `}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{
-                opacity: isCurrent ? 1 : isFuture ? 0.5 : 0.3,
-                y: 0,
-                scale: isCurrent ? 1.05 : 1
+              className={`relative my-1 cursor-pointer rounded-xl px-4 py-2.5 text-center transition-colors duration-300 hover:bg-white/[0.06] md:text-left ${
+                isCurrent
+                  ? 'text-2xl font-bold leading-snug text-white md:text-[1.75rem]'
+                  : isPast
+                    ? 'text-lg font-medium text-white/40'
+                    : 'text-lg font-medium text-white/65'
+              }`}
+              style={{
+                // Shadow keeps lines readable over the brighter song videos;
+                // the current line also gets a glow in the song's colour.
+                textShadow: isCurrent
+                  ? `0 0 28px ${accent}99, 0 2px 12px rgba(0,0,0,0.85)`
+                  : '0 2px 10px rgba(0,0,0,0.8)',
               }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0, scale: isCurrent ? 1.02 : 1 }}
               transition={{ duration: 0.3 }}
             >
-              {/* 当前行的发光效果 */}
-              {isCurrent && (
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-purple-500/20 rounded-lg"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
-              )}
+              {line.text}
 
-              <div className="relative z-10 text-center">
-                {line.text}
-              </div>
-
-              {/* 进度指示器（仅当前行显示） */}
+              {/* Progress through the current line, in the song's colour */}
               {isCurrent && index < lyrics.length - 1 && (
                 <motion.div
-                  className="mt-2 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent rounded-full"
+                  className="mx-auto mt-2 h-0.5 max-w-[14rem] rounded-full md:mx-0"
+                  style={{
+                    transformOrigin: 'left',
+                    background: `linear-gradient(90deg, ${accent}, ${accent}00)`,
+                  }}
                   initial={{ scaleX: 0 }}
                   animate={{
-                    scaleX: lyrics[index + 1]
-                      ? Math.min((currentTime - line.time) / (lyrics[index + 1].time - line.time), 1)
-                      : 1
+                    scaleX: Math.min((currentTime - line.time) / (lyrics[index + 1].time - line.time), 1),
                   }}
-                  style={{ transformOrigin: 'left' }}
                 />
               )}
             </motion.div>

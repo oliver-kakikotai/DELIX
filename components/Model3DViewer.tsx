@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, Environment, Float, Lightformer } from '@react-three/drei';
 import { Suspense, useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
 import type { MotionValue } from 'framer-motion';
 
 const BASE_SCALE = 1.5;
@@ -12,19 +13,63 @@ const BASE_SCALE = 1.5;
 // The canvas fills the whole screen and scrolling physically dollies the
 // camera toward the rock. (It used to be a small canvas magnified up to 6x
 // with a CSS scale, which could only ever look soft/blurry up close.)
+//
+// The fly-in has three beats, on the portal's progress scale (0 → 0.2):
+//   approach  0 → HOLD_START      the rock grows from far away; it stops
+//                                 spinning and turns its engraved face
+//                                 ("Hola, this is Delix") toward you
+//   hold      HOLD_START → HOLD_END  a slow drift, long enough to read it
+//   rush      HOLD_END → 0.2      dives in while the parent fades the canvas
 const CAMERA_FOV = 45;
 // Rock's on-screen size at the start, as a fraction of the viewport's
 // shorter side — matches the old 44vmin-wrapper framing (~20vmin rock).
 const START_SIZE_FRACTION = 0.22;
-// Camera distance at the end of the dolly: just off the surface, so the
-// rock fills the frame (the rock's radius is ~0.75 after BASE_SCALE).
-const END_DISTANCE = 1.0;
+// Final camera distance: just off the surface (the rock's radius is ~0.75
+// after BASE_SCALE), reached under the fade-out.
+const END_DISTANCE = 0.95;
 // The rock starts a bit below center (the old 8vh offset) and rises to
 // center as the camera closes in. Expressed as a fraction of view height.
 const START_Y_OFFSET_FRACTION = 0.08;
-// Voyage-progress span the fly-in covers. The parent fades the canvas out
-// over 0.15–0.2, so the dolly keeps moving underneath that fade.
-const FLY_IN_END = 0.17;
+const HOLD_START = 0.1;
+const HOLD_END = 0.145;
+const RUSH_END = 0.2;
+// How much closer the camera drifts during the hold (ratio of distances).
+const HOLD_DRIFT = 0.86;
+// Spin → face-the-camera blend window (portal progress).
+const LOCK_START = 0.05;
+const LOCK_END = 0.095;
+
+// ── Engraving ────────────────────────────────────────────────────────────
+// Placed on the flattest patch of the rock, found offline by ray-sampling
+// depth variation over the decal footprint around the model: azimuth 40°,
+// elevation −10° (depth std ≈ 3.5% of the decal width there). Nudged to
+// 36° so a raised ridge doesn't cut across the last letters.
+const ENGRAVE_AZIMUTH_DEG = 36;
+const ENGRAVE_ELEVATION_DEG = -10;
+// Decal footprint in model units (the model spans ~1.0 before BASE_SCALE).
+const ENGRAVE_WIDTH = 0.3;
+const ENGRAVE_HEIGHT = 0.17;
+// Projection depth — enough to wrap over the surface bumps in that patch.
+const ENGRAVE_DEPTH = 0.15;
+// The camera holds where the engraving spans this much of the view width.
+const ENGRAVE_VIEW_FRACTION_LANDSCAPE = 0.42;
+const ENGRAVE_VIEW_FRACTION_PORTRAIT = 0.8;
+
+const engraveDirection = () => {
+  const phi = THREE.MathUtils.degToRad(ENGRAVE_AZIMUTH_DEG);
+  const el = THREE.MathUtils.degToRad(ENGRAVE_ELEVATION_DEG);
+  return new THREE.Vector3(Math.sin(phi) * Math.cos(el), Math.sin(el), Math.cos(phi) * Math.cos(el)).normalize();
+};
+
+// Rotation about Y that turns the engraved face toward the camera (+Z).
+const ENGRAVE_FACING_ANGLE = -THREE.MathUtils.degToRad(ENGRAVE_AZIMUTH_DEG);
+
+const smoothstep = (x: number, a: number, b: number) => {
+  const t = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+// Wraps an angle difference into [-π, π].
+const wrapPi = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 function CameraRig({ progress }: { progress?: MotionValue<number> }) {
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
@@ -40,18 +85,38 @@ function CameraRig({ progress }: { progress?: MotionValue<number> }) {
     const visibleHeight = (rockDiameter / START_SIZE_FRACTION) * Math.max(1, 1 / aspect);
     const startDistance = visibleHeight / (2 * halfFovTan);
 
+    // Hold distance: where the engraving spans a readable share of the
+    // view width (wider share on portrait phones, which are narrow).
+    const surface = ENGRAVE_SURFACE_RADIUS * BASE_SCALE;
+    const engraveWorldWidth = ENGRAVE_WIDTH * BASE_SCALE;
+    const fraction = aspect >= 1 ? ENGRAVE_VIEW_FRACTION_LANDSCAPE : ENGRAVE_VIEW_FRACTION_PORTRAIT;
+    const holdDistance = surface + engraveWorldWidth / (fraction * 2 * halfFovTan * aspect);
+    const holdEndDistance = holdDistance * HOLD_DRIFT;
+
     const raw = progress ? progress.get() : 0;
-    const t = THREE.MathUtils.clamp(raw / FLY_IN_END, 0, 1);
-    // Interpolated in log-distance, so each scroll step is a constant
-    // zoom ratio (apparent size ∝ 1/distance; a linear lerp of distance
-    // barely grows the rock until the very end). The t^1.5 adds a gentle
-    // build-up so it drifts first, then rushes in — and the rock already
-    // overflows the screen by ~0.15, when the parent starts fading it out.
-    const eased = Math.pow(t, 1.5);
-    const z = startDistance * Math.pow(END_DISTANCE / startDistance, eased);
-    // Camera sits above the rock's center so the rock reads lower on screen;
-    // the offset scales with the visible height at the current distance.
-    const yOffset = START_Y_OFFSET_FRACTION * 2 * z * halfFovTan * (1 - t);
+    let z: number;
+    if (raw <= HOLD_START) {
+      // Log-distance interpolation: each scroll step is a constant zoom
+      // ratio (apparent size ∝ 1/distance); the eased t starts gently.
+      const t = THREE.MathUtils.clamp(raw / HOLD_START, 0, 1);
+      const eased = 1 - Math.pow(1 - t, 1.6);
+      z = startDistance * Math.pow(holdDistance / startDistance, eased);
+    } else if (raw <= HOLD_END) {
+      const t = (raw - HOLD_START) / (HOLD_END - HOLD_START);
+      z = THREE.MathUtils.lerp(holdDistance, holdEndDistance, t);
+    } else {
+      const t = THREE.MathUtils.clamp((raw - HOLD_END) / (RUSH_END - HOLD_END), 0, 1);
+      z = holdEndDistance * Math.pow(END_DISTANCE / holdEndDistance, t * t);
+    }
+    // Camera sits above the rock's center early on so the rock reads lower
+    // on screen; levelled out by the time the engraving is in view.
+    const approachT = THREE.MathUtils.clamp(raw / HOLD_START, 0, 1);
+    // …and lowered to the engraving's height (it sits slightly below the
+    // rock's equator), so the text is centred on screen during the hold.
+    const engraveY =
+      ENGRAVE_SURFACE_RADIUS * Math.sin(THREE.MathUtils.degToRad(ENGRAVE_ELEVATION_DEG)) * BASE_SCALE;
+    const yOffset =
+      START_Y_OFFSET_FRACTION * 2 * z * halfFovTan * (1 - approachT) + engraveY * smoothstep(approachT, 0.4, 1);
 
     camera.position.set(0, yOffset, z);
     camera.updateProjectionMatrix();
@@ -60,35 +125,163 @@ function CameraRig({ progress }: { progress?: MotionValue<number> }) {
   return null;
 }
 
+// Approximate distance from the rock's center to the engraved patch, in
+// model units (the measured hit distance there was ~0.427). Used for the
+// camera framing above; the decal itself uses an exact raycast hit.
+const ENGRAVE_SURFACE_RADIUS = 0.427;
+
+// Draws the engraving onto a transparent canvas: the text cut into the
+// stone (dark, softened) with a faint lit lower lip, like a carved groove
+// catching light from above. Uses the site's handwritten logo face.
+function drawEngraving(canvas: HTMLCanvasElement, fontFamily: string) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const { width: W, height: H } = canvas;
+  ctx.clearRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lines = [
+    { text: 'Hola,', size: H * 0.34, y: H * 0.3 },
+    { text: 'this is Delix', size: H * 0.34, y: H * 0.68 },
+  ];
+  for (const line of lines) {
+    ctx.font = `${line.size}px ${fontFamily}`;
+    // Lit lower lip of the groove.
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.fillText(line.text, W / 2 + 2, line.y + 4);
+    // The cut itself: translucent so the stone's own shading shows through.
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur = 5;
+    ctx.fillStyle = 'rgba(52, 50, 64, 0.7)';
+    ctx.fillText(line.text, W / 2, line.y);
+  }
+}
+
 // 3D模型组件
 function Model3DObject({
   modelPath,
   autoRotateSpeed,
+  progress,
 }: {
   modelPath: string;
   autoRotateSpeed: number;
+  progress?: MotionValue<number>;
 }) {
   const { scene } = useGLTF(modelPath);
   const modelRef = useRef<THREE.Object3D>(null);
+  const freeAngle = useRef(0);
 
   // Re-centers the cloned mesh on its own bounding-box center rather than
-  // whatever pivot the GLB happened to be exported with. Previously we spun
-  // the *camera* around the scene origin (OrbitControls autoRotate); if the
-  // mesh's visual bulk isn't centered on that origin, orbiting around it
-  // makes the object appear to swing off toward one corner and back as it
-  // rotates. Rotating the (now re-centered) object itself in place, with a
-  // fixed camera, keeps the framing stable regardless of the source pivot.
-  const clonedScene = useMemo(() => {
+  // whatever pivot the GLB happened to be exported with. Rotating the
+  // (re-centered) object itself in place, with a fixed camera, keeps the
+  // framing stable regardless of the source pivot.
+  //
+  // Also projects the engraving decal onto the surface (once per load).
+  const { clonedScene, engravingTexture } = useMemo(() => {
     const clone = scene.clone();
+    clone.updateMatrixWorld(true);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1440;
+    canvas.height = 800;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 8;
+
+    let target: THREE.Mesh | undefined;
+    clone.traverse((obj) => {
+      if (!target && (obj as THREE.Mesh).isMesh) target = obj as THREE.Mesh;
+    });
+    if (target) {
+      // DecalGeometry needs vertex normals; the GLB has none (it renders
+      // flat-shaded), so project against a temporary copy that has them.
+      const withNormals = new THREE.Mesh(target.geometry.clone());
+      withNormals.geometry.computeVertexNormals();
+      withNormals.matrixWorld.copy(target.matrixWorld);
+      withNormals.matrixAutoUpdate = false;
+
+      const dir = engraveDirection();
+      const raycaster = new THREE.Raycaster(dir.clone().multiplyScalar(3), dir.clone().negate());
+      const hit = raycaster.intersectObject(withNormals, false)[0];
+      if (hit) {
+        // Projector basis: x = text right, y = text up, z = outward normal.
+        const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize();
+        const up = new THREE.Vector3().crossVectors(dir, right).normalize();
+        const orientation = new THREE.Euler().setFromRotationMatrix(
+          new THREE.Matrix4().makeBasis(right, up, dir)
+        );
+        const decalGeometry = new DecalGeometry(
+          withNormals,
+          hit.point,
+          orientation,
+          new THREE.Vector3(ENGRAVE_WIDTH, ENGRAVE_HEIGHT, ENGRAVE_DEPTH)
+        );
+        const decal = new THREE.Mesh(
+          decalGeometry,
+          new THREE.MeshStandardMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false,
+            polygonOffset: true,
+            polygonOffsetFactor: -4,
+            roughness: 0.9,
+            metalness: 0,
+          })
+        );
+        decal.name = 'engraving';
+        clone.add(decal);
+      }
+      withNormals.geometry.dispose();
+    }
+
     const box = new THREE.Box3().setFromObject(clone);
     const center = box.getCenter(new THREE.Vector3());
     clone.position.sub(center);
-    return clone;
+    return { clonedScene: clone, engravingTexture: texture };
   }, [scene]);
 
-  useFrame((_, delta) => {
+  // Draw the text once the handwritten logo font has loaded (next/font
+  // exposes its generated family name through the --font-yellowtail var).
+  useEffect(() => {
+    let cancelled = false;
+    const family =
+      getComputedStyle(document.body).getPropertyValue('--font-yellowtail').trim() || 'cursive';
+    document.fonts
+      .load(`120px ${family}`)
+      .catch(() => undefined)
+      .then(() => {
+        if (cancelled) return;
+        drawEngraving(engravingTexture.image as HTMLCanvasElement, family);
+        engravingTexture.needsUpdate = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [engravingTexture]);
+
+  useEffect(() => () => {
+    engravingTexture.dispose();
+    const decal = clonedScene.getObjectByName('engraving') as THREE.Mesh | undefined;
+    if (decal) {
+      decal.geometry.dispose();
+      (decal.material as THREE.Material).dispose();
+    }
+  }, [clonedScene, engravingTexture]);
+
+  useFrame((state, delta) => {
     if (!modelRef.current) return;
-    modelRef.current.rotation.y += delta * autoRotateSpeed * 0.3;
+    // Free spin while far away; as the camera closes in, spinning stops and
+    // the rock turns its engraved face to the camera. The free angle is
+    // frozen during the blend so the lock target can't jump mid-turn, and
+    // scrolling back up resumes the spin from where it stopped.
+    const p = progress ? progress.get() : 0;
+    const w = smoothstep(p, LOCK_START, LOCK_END);
+    if (w === 0) freeAngle.current += delta * autoRotateSpeed * 0.3;
+    const lock = freeAngle.current + wrapPi(ENGRAVE_FACING_ANGLE - freeAngle.current);
+    // A tiny sway while locked keeps it from looking frozen.
+    const sway = w * 0.035 * Math.sin(state.clock.elapsedTime * 0.6);
+    modelRef.current.rotation.y = THREE.MathUtils.lerp(freeAngle.current, lock, w) + sway;
   });
 
   return (
@@ -229,7 +422,7 @@ function Model3DViewer({
         
         {/* 3D模型 - 物体自身缓慢自转，相机固定不动，纯装饰性，无需交互控制器 */}
         <Suspense fallback={<LoadingFallback />}>
-          <Model3DObject modelPath={modelPath} autoRotateSpeed={autoRotate ? autoRotateSpeed : 0} />
+          <Model3DObject modelPath={modelPath} autoRotateSpeed={autoRotate ? autoRotateSpeed : 0} progress={progress} />
         </Suspense>
       </Canvas>
     </div>

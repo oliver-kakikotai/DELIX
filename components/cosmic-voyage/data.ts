@@ -54,6 +54,7 @@ export type VoyageSong = (typeof albumData.songs)[number] & {
 export type LockedMission = {
   title: string;
   toolName: string;
+  toolImage?: string;
   clue: string;
 };
 

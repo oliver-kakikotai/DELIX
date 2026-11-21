@@ -1,25 +1,30 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { albumData } from '@/data/albumData';
 import { useUnlock } from '@/contexts/UnlockContext';
 import { flightPaths, LockedMission, signalTools, SignalTool } from './cosmic-voyage/data';
-import { Model3DGate, PhaseLabel } from './cosmic-voyage/ProgressGates';
+import { Model3DGate, PhaseWarning } from './cosmic-voyage/ProgressGates';
 import { VoyagePlanet } from './cosmic-voyage/VoyagePlanet';
 import { VoyageToolBeacon } from './cosmic-voyage/VoyageToolBeacon';
 import { SignalToolButton } from './cosmic-voyage/SignalToolButton';
 import { PocketRecoveryGame } from './cosmic-voyage/PocketRecoveryGame';
 import { OriginFile } from './cosmic-voyage/OriginFile';
 import { SignalSlots } from './cosmic-voyage/SignalSlots';
+import { LockedSignalAlert } from './cosmic-voyage/LockedSignalAlert';
 import { starField } from './cosmic-voyage/data';
 
 // Homepage scroll position saved when leaving for a song page, so coming back
 // (via "Back to Album", which pushes '/', or the browser back button) lands
 // where the visitor left instead of at the top of this very long page.
 const RETURN_SCROLL_KEY = 'delix-home-return-scroll';
+
+// Shared voyage-progress scale (see the scroll setup inside the component).
+const PORTAL_END = 0.2;
+const PLANET_INTRO_START = 0.14;
 
 export default function CosmicVoyage() {
   const router = useRouter();
@@ -56,13 +61,30 @@ export default function CosmicVoyage() {
     setTimeout(restore, 80);
   }, []);
   const { checkUnlock, collectTool, checkToolCollected, stats } = useUnlock();
-  const voyageRef = useRef<HTMLElement>(null);
+  // The voyage is told in story order across two pinned (sticky) sections
+  // with the DELIX origin file between them:
+  //   portal (3D rock fly-in) → OriginFile (who DELIX is) → planets (the
+  //   songs it wrote on Earth) → signal tools game (unlock the rest).
+  //
+  // Both sections are mapped onto ONE shared "voyage progress" scale so all
+  // the existing timing constants (flightPaths ranges, model fade, beacons…)
+  // keep working unchanged: the portal covers 0 → 0.2, the planet section
+  // PLANET_INTRO_START → 1 (it opens with a short intro beat before the
+  // first planet at 0.22).
+  const portalRef = useRef<HTMLElement>(null);
+  const planetsRef = useRef<HTMLElement>(null);
   const toolsRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll();
-  const { scrollYProgress: voyageProgress } = useScroll({
-    target: voyageRef,
+  const { scrollYProgress: portalRaw } = useScroll({
+    target: portalRef,
     offset: ['start start', 'end end'],
   });
+  const { scrollYProgress: planetsRaw } = useScroll({
+    target: planetsRef,
+    offset: ['start start', 'end end'],
+  });
+  const portalProgress = useTransform(portalRaw, [0, 1], [0, PORTAL_END]);
+  const planetsProgress = useTransform(planetsRaw, [0, 1], [PLANET_INTRO_START, 1]);
   // Mouse-wheel scrolling delivers position updates in coarse, discrete jumps
   // (unlike a trackpad's much higher-frequency stream). Feeding that directly
   // into the portal model's grow/fade animation makes an otherwise-continuous
@@ -70,7 +92,9 @@ export default function CosmicVoyage() {
   // spring re-adds motion between those discrete updates so it eases smoothly
   // regardless of how chunky the underlying scroll events are. Scoped to the
   // model only — other scroll-linked elements aren't affected.
-  const smoothVoyageProgress = useSpring(voyageProgress, { stiffness: 260, damping: 32, mass: 0.6 });
+  const springConfig = { stiffness: 260, damping: 32, mass: 0.6 };
+  const smoothPortalProgress = useSpring(portalProgress, springConfig);
+  const smoothVoyageProgress = useSpring(planetsProgress, springConfig);
   const [selectedLocked, setSelectedLocked] = useState<LockedMission | null>(null);
   const [unlockNotice, setUnlockNotice] = useState<{
     toolName: string;
@@ -124,7 +148,7 @@ export default function CosmicVoyage() {
   // happens inside the 3D scene — not via a CSS scale on a small canvas,
   // which magnified rendered pixels up to 6x and looked blurry up close.
   // Only the hand-off fade is still done here.
-  const modelOpacity = useTransform(smoothVoyageProgress, [0, 0.15, 0.2], [1, 1, 0]);
+  const modelOpacity = useTransform(smoothPortalProgress, [0, 0.15, 0.2], [1, 1, 0]);
   // These all use the spring-smoothed progress, not the raw scroll value —
   // see smoothVoyageProgress above. The planets' own flight paths (x/y/scale
   // in flightPaths, further below) span nearly the whole viewport and were
@@ -136,7 +160,11 @@ export default function CosmicVoyage() {
   // planets, tool beacons, phase label) on the same smoothed value keeps
   // them moving together and eases out those jumps instead of snapping.
   const orbitOpacity = useTransform(smoothVoyageProgress, [0.2, 0.26, 0.92, 1], [0, 0.36, 0.24, 0]);
-  const portalOpacity = useTransform(smoothVoyageProgress, [0, 0.08, 0.15], [1, 1, 0]);
+  const portalOpacity = useTransform(smoothPortalProgress, [0, 0.08, 0.15], [1, 1, 0]);
+  // Bridge from the origin story into the songs — visible as the planet
+  // section slides in, gone just before the first planet arrives.
+  const introOpacity = useTransform(smoothVoyageProgress, [PLANET_INTRO_START, 0.19, 0.205], [1, 1, 0]);
+  const introY = useTransform(smoothVoyageProgress, [PLANET_INTRO_START, 0.205], ['0vh', '-6vh']);
   const planetLayerOpacity = useTransform(smoothVoyageProgress, [0.2, 0.22, 0.965, 0.99], [0, 1, 1, 0]);
   const voyageOpacity = useTransform(smoothVoyageProgress, [0, 0.94, 1], [1, 1, 0]);
 
@@ -153,8 +181,6 @@ export default function CosmicVoyage() {
       }))
   ), [checkUnlock]);
 
-  const unlockedCount = songs.filter((song) => song.unlocked).length;
-  const collectedCount = signalTools.filter((tool) => checkToolCollected(tool.id)).length;
 
   // Random positions for the 4 tool buttons inside the signal-tools card.
   // Starts from the deterministic fallback layout (same on server and
@@ -186,10 +212,6 @@ export default function CosmicVoyage() {
     }
     setToolPositions(placed.map((p) => ({ left: `${p.l.toFixed(1)}%`, top: `${p.t.toFixed(1)}%` })));
   }, []);
-  const nextLockedSong = songs.find((song) => !song.unlocked);
-  const nextRequiredTool = nextLockedSong
-    ? signalTools.find((tool) => tool.songId === nextLockedSong.id)
-    : undefined;
 
   const openSong = (song: typeof songs[number]) => {
     if (song.unlocked) {
@@ -200,13 +222,16 @@ export default function CosmicVoyage() {
     setSelectedLocked({
       title: song.title,
       toolName: requiredTool?.name || 'UNKNOWN SIGNAL TOOL',
+      toolImage: requiredTool?.image,
       clue: requiredTool?.clue || song.unlockCondition?.description || 'A hidden archive tool is required.',
     });
   };
 
   const scrollToTools = () => {
+    setSelectedLocked(null);
     toolsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  const closeLockedAlert = useCallback(() => setSelectedLocked(null), []);
 
   const handleCollectTool = (tool: SignalTool) => {
     const wasAlreadyCollected = checkToolCollected(tool.id);
@@ -235,7 +260,7 @@ export default function CosmicVoyage() {
   };
 
   return (
-    <main className="relative min-h-[460vh] bg-black text-white">
+    <main className="relative bg-black text-white">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(93,115,255,0.18),rgba(7,10,22,0.78)_36%,#000_72%)]" />
         <motion.div
@@ -270,29 +295,64 @@ export default function CosmicVoyage() {
         />
       </div>
 
-      <section ref={voyageRef} className="relative h-[560vh]">
-        <motion.div
-          className="pointer-events-none fixed inset-0 flex h-screen items-center justify-center px-5 pt-24"
-          style={{ opacity: voyageOpacity }}
-        >
+      {/* ── 1. Portal: the 3D rock fly-in ── */}
+      {/* 260vh: room for the approach, a readable hold on the "Hola, this is
+          Delix" engraving, and the dive in (see CameraRig). */}
+      <section ref={portalRef} className="relative h-[260vh]">
+        <div className="pointer-events-none sticky top-0 h-screen overflow-hidden">
           {/* Full-screen 3D layer; the fly-in itself is camera movement
               inside the scene, only the fade-out is a CSS opacity here. */}
           <motion.div
             className="pointer-events-none absolute inset-0 z-10"
             style={{ opacity: modelOpacity }}
           >
-            <Model3DGate progress={smoothVoyageProgress} />
+            <Model3DGate progress={smoothPortalProgress} />
           </motion.div>
 
           <motion.div
             className="pointer-events-none absolute inset-0 z-20"
             style={{ opacity: portalOpacity }}
           >
-            <div className="pointer-events-none absolute bottom-[16vh] left-1/2 max-w-md -translate-x-1/2 text-center">
+            <div className="absolute bottom-[16vh] left-1/2 max-w-md -translate-x-1/2 text-center">
               <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-cyan-100/54">
                 Scroll to enter orbit
               </p>
             </div>
+          </motion.div>
+
+          <PhaseWarning progress={smoothPortalProgress} phaseSet="portal" />
+        </div>
+      </section>
+
+      {/* ── 2. Who DELIX is ── */}
+      <OriginFile />
+
+      {/* ── 3. The songs it wrote on Earth, as planets to fly past ── */}
+      <section ref={planetsRef} className="relative h-[500vh]">
+        <motion.div
+          className="pointer-events-none sticky top-0 flex h-screen items-center justify-center overflow-hidden px-5 pt-24"
+          style={{ opacity: voyageOpacity }}
+        >
+          <motion.div
+            className="pointer-events-none absolute inset-x-5 top-1/2 z-20 -translate-y-1/2 text-center"
+            style={{ opacity: introOpacity, y: introY }}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-cyan-100/54">
+              Then it landed here
+            </p>
+            {/* Hand-lettered wordmark (same language as the logo and the
+                "Collect the missing keys" heading). */}
+            <h2 className="mx-auto mt-4 w-[min(88vw,760px)]">
+              <Image
+                src="/images/地球奇遇与星光签名.png"
+                alt="Earth life was strange, so was Delix."
+                width={2172}
+                height={724}
+                sizes="(min-width: 768px) 760px, 88vw"
+                className="h-auto w-full"
+                priority={false}
+              />
+            </h2>
           </motion.div>
 
           <motion.div
@@ -318,32 +378,11 @@ export default function CosmicVoyage() {
             ))}
           </motion.div>
 
-          <div className="pointer-events-none absolute bottom-7 left-7 z-50 hidden w-56 border border-white/10 bg-black/40 px-4 py-3 text-white/54 backdrop-blur-xl md:block">
-            <div className="mb-2 text-[10px] uppercase tracking-[0.28em] text-cyan-100/42">Archive Status</div>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between"><span>Song worlds</span><span>{unlockedCount}/{albumData.totalSongs}</span></div>
-              <div className="flex justify-between"><span>Signal tools</span><span>{collectedCount}/{signalTools.length}</span></div>
-              <div className="flex justify-between"><span>Next key</span><span className="max-w-[92px] truncate text-right">{nextRequiredTool?.name || 'Complete'}</span></div>
-              <div className="h-px bg-white/10" />
-              <PhaseLabel progress={smoothVoyageProgress} className="text-[10px] uppercase tracking-[0.22em] text-white/32" />
-            </div>
-          </div>
-
-          <div className="pointer-events-none absolute bottom-8 left-1/2 z-30 -translate-x-1/2 text-center">
-            <PhaseLabel progress={smoothVoyageProgress} className="text-[10px] uppercase tracking-[0.38em] text-white/36" />
-            <div className="mx-auto mt-3 h-10 w-px overflow-hidden bg-white/10">
-              <motion.div
-                className="h-5 w-px bg-white/80"
-                animate={{ y: [-20, 44] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-              />
-            </div>
-          </div>
+          <PhaseWarning progress={smoothVoyageProgress} phaseSet="voyage" />
         </motion.div>
       </section>
 
-      <OriginFile />
-
+      {/* ── 4. Recover the keys to unlock the rest ── */}
       <section
         ref={toolsRef}
         id="signal-tools"
@@ -415,34 +454,13 @@ export default function CosmicVoyage() {
         <SignalSlots tools={signalTools} isCollected={checkToolCollected} onOpenSong={goToSong} />
       </section>
 
-      {selectedLocked && (
-        <div
-          className="fixed bottom-6 left-1/2 z-[80] w-[min(92vw,680px)] -translate-x-1/2 border border-white/15 bg-black/85 px-5 py-4 text-left shadow-2xl backdrop-blur-xl"
-        >
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-100/42">Locked Planet</p>
-          <h3 className="text-2xl font-black text-white">{selectedLocked.title}</h3>
-          <p className="mt-3 text-sm leading-6 text-white/66">
-            Required tool: <span className="text-white">{selectedLocked.toolName}</span>
-          </p>
-          <p className="mt-1 text-sm leading-6 text-white/46">{selectedLocked.clue}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={scrollToTools}
-              className="rounded-full border border-white/14 bg-white/[0.06] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70 transition hover:border-white/30 hover:text-white"
-            >
-              Go to Signal Tools
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedLocked(null)}
-              className="rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/36 transition hover:text-white/70"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      <LockedSignalAlert
+        mission={selectedLocked}
+        keysFound={signalTools.filter((tool) => checkToolCollected(tool.id)).length}
+        keysTotal={signalTools.length}
+        onFindKey={scrollToTools}
+        onClose={closeLockedAlert}
+      />
       {recoveryToolId !== null && (
         <div className="fixed bottom-6 left-1/2 z-[78] w-[min(92vw,520px)] -translate-x-1/2 rounded-2xl border border-cyan-100/20 bg-black/88 p-5 shadow-[0_20px_90px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
           {(() => {

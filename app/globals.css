@@ -382,14 +382,11 @@ body {
   padding: 10px !important;
 }
 
-/* 重置可能影响布局的全局样式 */
-.grid {
-  margin: 0 !important;
-}
-
-.grid > * {
-  margin: 0 !important;
-}
+/* (Removed: a legacy `.grid, .grid > * { margin: 0 !important }` reset.
+   It targeted Tailwind's own `grid` utility, so it silently zeroed every
+   margin utility (mx-auto, mt-*, mb-*) on any grid element and its direct
+   children site-wide — e.g. the song page layout wasn't centred and the
+   locked-planet alert's key icon sat off to the left.) */
 
 /* 确保没有其他框架的样式干扰 */
 .featured-projects-grid {
@@ -1476,4 +1473,46 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .voyage-star { animation: none; }
+}
+
+/* Homepage phase "warning tag" (PhaseWarning in ProgressGates.tsx):
+   caution-tape stripes that slowly crawl outward, and a short double blink
+   whenever the phase changes. White, to stay in the HUD's palette. */
+.hazard-stripes {
+  display: block;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.55) 0 3px,
+    transparent 3px 7px
+  );
+  animation: hazard-crawl 1.6s linear infinite;
+}
+
+.hazard-stripes-reverse {
+  animation-direction: reverse;
+}
+
+/* 7px stripe period at 45° → 7·√2 ≈ 9.9px horizontally, so shifting by
+   exactly that loops seamlessly. */
+@keyframes hazard-crawl {
+  from { background-position: 0 0; }
+  to { background-position: -9.9px 0; }
+}
+
+.hazard-tag-flash {
+  animation: hazard-flash 0.7s steps(1, end) both;
+}
+
+@keyframes hazard-flash {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  30% { opacity: 0.15; }
+  45% { opacity: 1; }
+  60% { opacity: 0.15; }
+  75%, 100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hazard-stripes,
+  .hazard-tag-flash { animation: none; }
 }

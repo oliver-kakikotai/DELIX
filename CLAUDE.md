@@ -31,11 +31,12 @@ CI (`.github/workflows/ci.yml`) runs `tsc → lint → test → build` on every 
 - `app/layout.tsx` mounts the global providers plus `GlobalAudioPlayer`, which renders on every route
 
 ### CosmicVoyage
-`components/CosmicVoyage.tsx` is the homepage's main component; it orchestrates state and layout only. Its pieces live in `components/cosmic-voyage/`:
+`components/CosmicVoyage.tsx` is the homepage's main component; it orchestrates state and layout only. The page tells the story in order: **portal** (3D rock fly-in) → **OriginFile** (who DELIX is: sole survivor of a lost galaxy, now on Earth) → **planets** (the songs DELIX wrote *on Earth* — not memories of the lost world) → **signal tools** game (unlock the locked songs). The portal and planet sections are separate sticky sections mapped onto one shared voyage-progress scale (portal 0→0.2, planets 0.14→1), so `flightPaths` ranges and other timing constants are on that scale. Its pieces live in `components/cosmic-voyage/`:
 - `data.ts` — static data: `signalTools`, `flightPaths`, `starField`, related types
 - `VoyagePlanet.tsx` / `VoyageToolBeacon.tsx` — planets/tools during the flight-through phase
+- `LockedSignalAlert.tsx` — pop-up when a locked planet is clicked (key required, keys recovered, jump to the game)
 - `SignalToolButton.tsx` / `PocketRecoveryGame.tsx` — the signal-tools section and its chase mini-game (canvas-based, imperative render loop)
-- `ProgressGates.tsx` — `Model3DGate` (pauses the 3D model's render loop off-phase) and `PhaseLabel`, both isolated so per-frame scroll updates don't re-render the whole tree
+- `ProgressGates.tsx` — `Model3DGate` (pauses the 3D model's render loop off-phase) and `PhaseWarning` (bottom-center hazard-stripe phase tag + playful quip, one phase set per section), both isolated so per-frame scroll updates don't re-render the whole tree
 
 `components/Planet.tsx` is a generic fallback planet visual, only used when a song has no `planetImage` (currently none — every song in `albumData` sets one).
 
