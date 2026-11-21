@@ -33,7 +33,7 @@ export function VoyageToolBeacon({
       type="button"
       onClick={onInspect}
       aria-label={`Scan ${tool.name}`}
-      className="pointer-events-auto absolute left-1/2 top-1/2 z-40 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-cyan-100/18 bg-black/50 shadow-[0_0_42px_rgba(165,231,255,0.18)] backdrop-blur-xl"
+      className="pointer-events-auto absolute left-1/2 top-1/2 z-40 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-cyan-100/18 bg-black/70 shadow-[0_0_42px_rgba(165,231,255,0.18)]"
       style={{ x, y, opacity, scale }}
     >
       <span className="absolute inset-[-22%] rounded-full border border-cyan-100/12" />

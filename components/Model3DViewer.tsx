@@ -1,11 +1,64 @@
 'use client';
 
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useGLTF, Environment, Float } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useGLTF, Environment, Float, Lightformer } from '@react-three/drei';
 import { Suspense, useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
+import type { MotionValue } from 'framer-motion';
 
 const BASE_SCALE = 1.5;
+
+// ── Scroll-driven fly-in ─────────────────────────────────────────────────
+// The canvas fills the whole screen and scrolling physically dollies the
+// camera toward the rock. (It used to be a small canvas magnified up to 6x
+// with a CSS scale, which could only ever look soft/blurry up close.)
+const CAMERA_FOV = 45;
+// Rock's on-screen size at the start, as a fraction of the viewport's
+// shorter side — matches the old 44vmin-wrapper framing (~20vmin rock).
+const START_SIZE_FRACTION = 0.22;
+// Camera distance at the end of the dolly: just off the surface, so the
+// rock fills the frame (the rock's radius is ~0.75 after BASE_SCALE).
+const END_DISTANCE = 1.0;
+// The rock starts a bit below center (the old 8vh offset) and rises to
+// center as the camera closes in. Expressed as a fraction of view height.
+const START_Y_OFFSET_FRACTION = 0.08;
+// Voyage-progress span the fly-in covers. The parent fades the canvas out
+// over 0.15–0.2, so the dolly keeps moving underneath that fade.
+const FLY_IN_END = 0.17;
+
+function CameraRig({ progress }: { progress?: MotionValue<number> }) {
+  const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
+  const size = useThree((state) => state.size);
+
+  useFrame(() => {
+    const aspect = size.width / Math.max(1, size.height);
+    const halfFovTan = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2));
+    // Distance at which the rock (diameter 2*0.75) spans START_SIZE_FRACTION
+    // of the shorter viewport side. On portrait screens width is the short
+    // side, so the vertical framing has to be widened by 1/aspect.
+    const rockDiameter = BASE_SCALE;
+    const visibleHeight = (rockDiameter / START_SIZE_FRACTION) * Math.max(1, 1 / aspect);
+    const startDistance = visibleHeight / (2 * halfFovTan);
+
+    const raw = progress ? progress.get() : 0;
+    const t = THREE.MathUtils.clamp(raw / FLY_IN_END, 0, 1);
+    // Interpolated in log-distance, so each scroll step is a constant
+    // zoom ratio (apparent size ∝ 1/distance; a linear lerp of distance
+    // barely grows the rock until the very end). The t^1.5 adds a gentle
+    // build-up so it drifts first, then rushes in — and the rock already
+    // overflows the screen by ~0.15, when the parent starts fading it out.
+    const eased = Math.pow(t, 1.5);
+    const z = startDistance * Math.pow(END_DISTANCE / startDistance, eased);
+    // Camera sits above the rock's center so the rock reads lower on screen;
+    // the offset scales with the visible height at the current distance.
+    const yOffset = START_Y_OFFSET_FRACTION * 2 * z * halfFovTan * (1 - t);
+
+    camera.position.set(0, yOffset, z);
+    camera.updateProjectionMatrix();
+  });
+
+  return null;
+}
 
 // 3D模型组件
 function Model3DObject({
@@ -80,6 +133,9 @@ interface Model3DViewerProps {
   // opacity) — the scene keeps rendering every frame otherwise, even while
   // scrolled far off the visible portal phase.
   active?: boolean;
+  // Scroll progress driving the camera fly-in (see CameraRig). Read inside
+  // the render loop via .get(), so scrolling never re-renders React.
+  progress?: MotionValue<number>;
 }
 
 function Model3DViewer({
@@ -87,7 +143,8 @@ function Model3DViewer({
   className = '',
   autoRotate = true,
   autoRotateSpeed = 2,
-  active = true
+  active = true,
+  progress,
 }: Model3DViewerProps) {
   const [isClient, setIsClient] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -118,39 +175,38 @@ function Model3DViewer({
     >
       <Canvas
         frameloop={active ? 'always' : 'never'}
-        // R3F sizes its WebGL drawing buffer by calling getBoundingClientRect()
-        // on this wrapper (via react-use-measure), which reports the box
-        // *after* CSS transforms — including the ancestor `scale()` the voyage
-        // page uses to grow this model up to 6x. Without this override, the
-        // canvas kept resizing its actual render target to match the scaled-up
-        // size (measured up to ~4250x4250 physical pixels at scale 6 with
-        // antialiasing on), which is both wasteful and appears to blow past a
-        // GPU/driver limit and render blank at the largest sizes — exactly the
-        // "rock disappears once it's big" bug. `offsetSize: true` makes it use
-        // offsetWidth/offsetHeight instead, which are untouched by transforms,
-        // so the canvas's real resolution stays fixed and the ancestor scale
-        // purely magnifies the already-rendered pixels as intended.
+        // Size the drawing buffer from offsetWidth/offsetHeight (layout size,
+        // untouched by CSS transforms) rather than getBoundingClientRect().
+        // Defensive: if an ancestor is ever transform-scaled again, the
+        // render target won't balloon to the scaled size.
         resize={{ offsetSize: true }}
         camera={{
-          position: [0, 0, 4],
-          fov: 45,
-          near: 0.1,
-          far: 1000
+          position: [0, 0, 9],
+          fov: CAMERA_FOV,
+          near: 0.05,
+          far: 100
         }}
         style={{
           background: 'transparent',
           pointerEvents: 'none',
           touchAction: 'none'
         }}
-        dpr={[1, 2]}
+        // Capped at 1.5x: the canvas is full-screen, and full 2x retina
+        // resolution roughly doubles GPU fill cost for little visible gain.
+        dpr={[1, 1.5]}
         gl={{
           antialias: true,
           alpha: true,
-          preserveDrawingBuffer: true
+          // Not needed (nothing reads pixels back from the canvas) and it
+          // forces an extra buffer copy every frame.
+          preserveDrawingBuffer: false,
+          powerPreference: 'high-performance'
         }}
         eventSource={typeof window !== 'undefined' && !isTouchDevice ? undefined : document.createElement('div')}
         eventPrefix="client"
       >
+        <CameraRig progress={progress} />
+
         {/* 光照设置 */}
         <ambientLight intensity={0.6} />
         <directionalLight 
@@ -161,8 +217,15 @@ function Model3DViewer({
         <pointLight position={[-5, -5, -5]} intensity={0.4} color="#4299e1" />
         <pointLight position={[5, -5, 5]} intensity={0.3} color="#ed64a6" />
         
-        {/* 环境贴图 - 夜晚环境 */}
-        <Environment preset="night" />
+        {/* 环境贴图 - 本地生成的暗色夜晚环境。之前用的 preset="night" 会在
+            运行时从外部 CDN 下载一张 HDR 贴图，首次加载时会卡顿；这里用几块
+            Lightformer 在本地烘焙一次，效果接近，且不需要网络请求。 */}
+        <Environment resolution={64} frames={1}>
+          <color attach="background" args={['#05070f']} />
+          <Lightformer form="rect" intensity={0.8} color="#8fa8ff" position={[0, 5, -5]} scale={[10, 4, 1]} />
+          <Lightformer form="rect" intensity={0.4} color="#ffd9b0" position={[-5, 1, 2]} scale={[3, 6, 1]} />
+          <Lightformer form="rect" intensity={0.3} color="#4299e1" position={[5, -2, 2]} scale={[3, 6, 1]} />
+        </Environment>
         
         {/* 3D模型 - 物体自身缓慢自转，相机固定不动，纯装饰性，无需交互控制器 */}
         <Suspense fallback={<LoadingFallback />}>

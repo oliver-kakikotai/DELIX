@@ -5,6 +5,103 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { SignalTool } from './data';
 
+// ── Pocket drawing (canvas, centered on 0,0, ~64×60) ──
+
+// U-shaped pouch body with a dark opening across the top and a stitched seam.
+function drawPocket(ctx: CanvasRenderingContext2D, fill: string) {
+  ctx.beginPath();
+  ctx.moveTo(-30, -20);
+  ctx.lineTo(30, -20);
+  ctx.quadraticCurveTo(35, 12, 22, 28);
+  ctx.quadraticCurveTo(0, 38, -22, 28);
+  ctx.quadraticCurveTo(-35, 12, -30, -20);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.fill();
+  ctx.stroke();
+
+  // Stitched seam just inside the outline.
+  ctx.save();
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(-25, -13);
+  ctx.quadraticCurveTo(-28, 10, -18, 22);
+  ctx.quadraticCurveTo(0, 30, 18, 22);
+  ctx.quadraticCurveTo(28, 10, 25, -13);
+  ctx.stroke();
+  ctx.restore();
+
+  // Opening.
+  ctx.beginPath();
+  ctx.ellipse(0, -20, 30, 7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#2a1f4a';
+  ctx.fill();
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+// Two dot eyes and a mouth that change with the chase state; sweat drops
+// when cornered.
+function drawFace(ctx: CanvasRenderingContext2D, status: string, now: number) {
+  ctx.fillStyle = '#111';
+  ctx.strokeStyle = '#111';
+  ctx.lineCap = 'round';
+
+  if (status === 'cornered') {
+    // Squeezed-shut eyes: > <
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-13, 0); ctx.lineTo(-7, 4); ctx.lineTo(-13, 8);
+    ctx.moveTo(13, 0);  ctx.lineTo(7, 4);  ctx.lineTo(13, 8);
+    ctx.stroke();
+    // Wobbly mouth
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-7, 17);
+    ctx.quadraticCurveTo(-3.5, 13, 0, 17);
+    ctx.quadraticCurveTo(3.5, 21, 7, 17);
+    ctx.stroke();
+    // Sweat drops, bobbing
+    const bob = Math.sin(now / 120) * 2;
+    for (const [x, y] of [[30, -10 + bob], [-31, -4 - bob]] as const) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - 6);
+      ctx.quadraticCurveTo(x + 4, y + 1, x, y + 3);
+      ctx.quadraticCurveTo(x - 4, y + 1, x, y - 6);
+      ctx.fillStyle = '#9fd8ff';
+      ctx.fill();
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+    return;
+  }
+
+  // Eyes — wider when it senses you.
+  const r = status === 'fleeing' ? 3.6 : 2.8;
+  ctx.beginPath();
+  ctx.arc(-9, 4, r, 0, Math.PI * 2);
+  ctx.arc(9, 4, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (status === 'fleeing') {
+    // Small "o" of alarm
+    ctx.arc(0, 16, 3, 0, Math.PI * 2);
+  } else {
+    // Smug little smile
+    ctx.moveTo(-6, 14);
+    ctx.quadraticCurveTo(0, 19, 6, 14);
+  }
+  ctx.stroke();
+}
+
 export function PocketRecoveryGame({
   tools,
   checkCollected,
@@ -50,6 +147,8 @@ export function PocketRecoveryGame({
   const [label, setLabel]       = useState('Chase the pocket');
   const [pressure, setPressure] = useState(0);
   const [toolImg, setToolImg]   = useState('');
+  // Shows a pulsing "Drag me" hint on the tool until the first grab.
+  const [hasDragged, setHasDragged] = useState(false);
 
   const R      = 32;
   const FLEE   = 160;
@@ -62,24 +161,24 @@ export function PocketRecoveryGame({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Canvas size is cached from a ResizeObserver rather than read with
+    // getBoundingClientRect() inside the render loop — that forced a layout
+    // recalculation on every single frame for the whole life of the page.
+    let cssW = canvas.clientWidth;
+    let cssH = canvas.clientHeight;
     const fit = () => {
-      const r = canvas.getBoundingClientRect();
-      if (canvas.width !== r.width || canvas.height !== r.height) {
-        canvas.width  = r.width;
-        canvas.height = r.height;
+      if (canvas.width !== cssW || canvas.height !== cssH) {
+        canvas.width  = cssW;
+        canvas.height = cssH;
       }
     };
     fit();
+    const ro = new ResizeObserver(([entry]) => {
+      cssW = Math.round(entry.contentRect.width);
+      cssH = Math.round(entry.contentRect.height);
+    });
+    ro.observe(canvas);
 
-    const rr = (x: number, y: number, w: number, h: number, r: number) => {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y,     x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x,     y + h, r);
-      ctx.arcTo(x,     y + h, x,     y,     r);
-      ctx.arcTo(x,     y,     x + w, y,     r);
-      ctx.closePath();
-    };
 
     // Place the next uncollected tool — starts at the tool button's position
     const spawnTool = (W: number, H: number) => {
@@ -124,7 +223,15 @@ export function PocketRecoveryGame({
       }
     };
 
-    let rafId: number;
+    // The loop only runs while the game is actually on screen. It used to
+    // draw (with expensive canvas shadowBlur glows) every frame from page
+    // load onward, even while the visitor was still up in the 3D/planet
+    // section and nowhere near the game.
+    let rafId = 0;
+    let visible = false;
+    const schedule = () => {
+      rafId = visible ? requestAnimationFrame(tick) : 0;
+    };
 
     const tick = (now: number) => {
       fit();
@@ -141,7 +248,7 @@ export function PocketRecoveryGame({
         s.initialized = true;
         spawnTool(W, H);
       }
-      if (!s.initialized) { rafId = requestAnimationFrame(tick); return; }
+      if (!s.initialized) { schedule(); return; }
 
       // ── Advance to next tool after success animation ──
       if (s.needsAdvance) {
@@ -163,7 +270,7 @@ export function PocketRecoveryGame({
         s.closeT += 0.02;
         if (s.closeT >= 1) s.closeT = -2;
       }
-      if (s.closeT === -2) { rafId = requestAnimationFrame(tick); return; }
+      if (s.closeT === -2) { schedule(); return; }
 
       // ── Physics (skip during success or all done) ──
       if (!s.placed && !s.allDone && s.successT < 0) {
@@ -243,63 +350,56 @@ export function PocketRecoveryGame({
       ctx.globalAlpha = closeAlpha;
       ctx.translate(s.px, s.py);
 
-      const pw = 58, ph = 52, pr = 13;
-
       if (inSuccess) {
-        // Glowing success state — pocket stays, shows checkmark
+        // Captured — pocket turns acid yellow with a check, pulsing.
         const glow = 0.4 + 0.4 * Math.sin(s.successT * Math.PI * 4);
-        ctx.shadowColor = `rgba(165,231,255,${glow})`;
-        ctx.shadowBlur  = 24 + glow * 22;
-        rr(-pw / 2, -ph / 2, pw, ph, pr);
-        ctx.fillStyle   = `rgba(165,231,255,0.2)`;
-        ctx.strokeStyle = `rgba(165,231,255,0.88)`;
-        ctx.lineWidth   = 2;
-        ctx.fill(); ctx.stroke();
+        ctx.shadowColor = `rgba(217,255,18,${glow})`;
+        ctx.shadowBlur  = 24 + glow * 26;
+        drawPocket(ctx, '#D9FF12');
         ctx.shadowBlur  = 0;
-        ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-        ctx.lineWidth   = 2.5;
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth   = 3.5;
         ctx.lineCap     = 'round';
         ctx.lineJoin    = 'round';
         ctx.globalAlpha = closeAlpha * Math.min(1, s.successT * 5);
         ctx.beginPath();
-        ctx.moveTo(-11, 0); ctx.lineTo(-3, 9); ctx.lineTo(13, -9);
+        ctx.moveTo(-11, 4); ctx.lineTo(-3, 13); ctx.lineTo(13, -5);
         ctx.stroke();
         ctx.globalAlpha = closeAlpha;
       } else {
-        // Normal or closing pocket
+        // Normal or closing pocket — a little cream pouch creature in the
+        // same thick-outline style as the DELIX artwork.
         ctx.rotate((s.shake * Math.PI) / 180);
         ctx.scale(s.shakeScale, s.shakeScale);
         if (cDraw && !inClose) {
-          ctx.shadowColor = `rgba(165,231,255,${0.18 + s.pressure / 350})`;
-          ctx.shadowBlur  = 16 + s.pressure * 0.2;
+          ctx.shadowColor = `rgba(217,255,18,${0.25 + s.pressure / 200})`;
+          ctx.shadowBlur  = 14 + s.pressure * 0.3;
         }
-        rr(-pw / 2, -ph / 2, pw, ph, pr);
-        ctx.fillStyle   = `rgba(165,231,255,${0.07 + s.pressure / 900})`;
-        ctx.strokeStyle = `rgba(165,231,255,${0.35 + s.pressure / 280})`;
-        ctx.lineWidth   = 1.5;
-        ctx.fill(); ctx.stroke();
+        drawPocket(ctx, '#F4F1E8');
         ctx.shadowBlur = 0;
-        ctx.fillStyle = 'rgba(165,231,255,0.45)';
-        rr(-15, -5, 30, 8, 4);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(165,231,255,0.28)';
-        ctx.lineWidth   = 1;
-        ctx.beginPath();
-        ctx.moveTo(-14, ph / 2 + 1);
-        ctx.quadraticCurveTo(0, ph / 2 + 9, 14, ph / 2 + 1);
-        ctx.stroke();
+        drawFace(ctx, s.status, now);
       }
 
       ctx.restore();
-      rafId = requestAnimationFrame(tick);
+      schedule();
     };
 
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible && !rafId) rafId = requestAnimationFrame(tick);
+    });
+    io.observe(canvas);
+    return () => {
+      visible = false;
+      cancelAnimationFrame(rafId);
+      io.disconnect();
+      ro.disconnect();
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onToolDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (g.current.placed || g.current.allDone) return;
+    setHasDragged(true);
     e.currentTarget.setPointerCapture(e.pointerId);
     e.currentTarget.style.cursor = 'grabbing';
     e.preventDefault();
@@ -328,16 +428,16 @@ export function PocketRecoveryGame({
         ref={canvasRef}
         className="absolute inset-0 h-full w-full z-[5] pointer-events-none"
       />
-      <div className="pointer-events-none absolute left-3 top-3 z-[6] text-[9px] font-semibold uppercase tracking-[0.22em] text-cyan-100/50">
+      <div className="pointer-events-none absolute left-4 top-4 z-[6] -rotate-1 rounded-full bg-[#D9FF12] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-black shadow-[0_6px_20px_rgba(0,0,0,0.35)]">
         {label}
       </div>
-      <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[6]">
-        <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.18em] text-white/35">
+      <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[6]">
+        <div className="mb-1.5 flex justify-between text-[9px] font-semibold uppercase tracking-[0.18em] text-white/50">
           <span>Corner pressure</span><span>{pressure}%</span>
         </div>
-        <div className="h-1 overflow-hidden rounded-full bg-white/10">
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
           <motion.div
-            className="h-full rounded-full bg-cyan-100/70"
+            className="h-full rounded-full bg-[#D9FF12]"
             animate={{ width: `${pressure}%` }}
             transition={{ duration: 0.08 }}
           />
@@ -345,13 +445,21 @@ export function PocketRecoveryGame({
       </div>
       <div
         ref={toolDivRef}
-        className="absolute z-[30] grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center rounded-full border border-white/25 bg-black/70 shadow-[0_0_28px_rgba(255,255,255,0.16)] touch-none select-none"
+        className="absolute z-[30] grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center rounded-full border-[3px] border-black bg-[#F4F1E8] shadow-[0_10px_30px_rgba(0,0,0,0.5)] touch-none select-none"
         style={{ left: 0, top: 0, opacity: 0 }}
         onPointerDown={onToolDown}
         onPointerMove={onToolMove}
         onPointerUp={onToolUp}
         onPointerLeave={onToolUp}
       >
+        {!hasDragged && (
+          <>
+            <span className="pointer-events-none absolute -inset-2 rounded-full border-2 border-[#D9FF12] motion-safe:animate-ping" />
+            <span className="pointer-events-none absolute left-1/2 top-full mt-3 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#D9FF12] px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-black">
+              Drag me
+            </span>
+          </>
+        )}
         {toolImg && <Image src={toolImg} alt="" width={44} height={44} className="h-11 w-11 object-contain pointer-events-none" />}
       </div>
     </>

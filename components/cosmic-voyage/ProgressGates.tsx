@@ -15,7 +15,7 @@ export function Model3DGate({ progress }: { progress: MotionValue<number> }) {
     const next = latest <= 0.22;
     setActive((prev) => (prev === next ? prev : next));
   });
-  return <Model3DViewer modelPath="/models/hitem3d.glb" className="relative z-10" autoRotateSpeed={1.1} active={active} />;
+  return <Model3DViewer modelPath="/models/hitem3d.glb" className="relative z-10" autoRotateSpeed={1.1} active={active} progress={progress} />;
 }
 
 // Same isolation trick for the phase label — it used to be top-level state,

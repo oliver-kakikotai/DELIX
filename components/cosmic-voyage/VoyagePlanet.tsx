@@ -69,8 +69,10 @@ export function VoyagePlanet({
           className="absolute h-[30vmin] w-[30vmin] rounded-full"
           style={{
             opacity: depthGlow,
-            background: `radial-gradient(circle, ${song.color || '#ffffff'}44, transparent 72%)`,
-            filter: 'blur(34px)',
+            // Soft falloff baked into the gradient stops instead of a
+            // `filter: blur(34px)` — that blur had to be recomputed on every
+            // scroll frame as the planet scales up to ~3x.
+            background: `radial-gradient(circle, ${song.color || '#ffffff'}40 0%, ${song.color || '#ffffff'}22 35%, ${song.color || '#ffffff'}0a 60%, transparent 78%)`,
           }}
         />
         <motion.span

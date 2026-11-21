@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -13,10 +13,48 @@ import { VoyageToolBeacon } from './cosmic-voyage/VoyageToolBeacon';
 import { SignalToolButton } from './cosmic-voyage/SignalToolButton';
 import { PocketRecoveryGame } from './cosmic-voyage/PocketRecoveryGame';
 import { OriginFile } from './cosmic-voyage/OriginFile';
+import { SignalSlots } from './cosmic-voyage/SignalSlots';
 import { starField } from './cosmic-voyage/data';
+
+// Homepage scroll position saved when leaving for a song page, so coming back
+// (via "Back to Album", which pushes '/', or the browser back button) lands
+// where the visitor left instead of at the top of this very long page.
+const RETURN_SCROLL_KEY = 'delix-home-return-scroll';
 
 export default function CosmicVoyage() {
   const router = useRouter();
+
+  const goToSong = (slug: string) => {
+    try {
+      sessionStorage.setItem(RETURN_SCROLL_KEY, String(window.scrollY));
+    } catch {
+      /* storage unavailable — fall back to normal navigation */
+    }
+    router.push(`/song/${slug}`);
+  };
+
+  useLayoutEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = sessionStorage.getItem(RETURN_SCROLL_KEY);
+      sessionStorage.removeItem(RETURN_SCROLL_KEY);
+    } catch {
+      return;
+    }
+    const top = Number(saved);
+    if (!saved || !Number.isFinite(top)) return;
+    // 'instant' overrides the html `scroll-smooth` class. Re-applied over the
+    // next frames because the router's own scroll-to-top on navigation runs
+    // after this effect. Deliberately not cancelled on cleanup: under React
+    // strict mode the effect re-runs, and the key is already consumed.
+    const restore = () => window.scrollTo({ top, behavior: 'instant' });
+    restore();
+    requestAnimationFrame(() => {
+      restore();
+      requestAnimationFrame(restore);
+    });
+    setTimeout(restore, 80);
+  }, []);
   const { checkUnlock, collectTool, checkToolCollected, stats } = useUnlock();
   const voyageRef = useRef<HTMLElement>(null);
   const toolsRef = useRef<HTMLElement>(null);
@@ -80,28 +118,13 @@ export default function CosmicVoyage() {
   }, [stats.collectedTools]);
 
   const cameraY = useTransform(scrollYProgress, [0, 1], ['0vh', '-24vh']);
-  // Deep-space drift: starts small and far off, grows as you scroll until it
-  // overflows the frame, then hands off to the planet-approach phase.
-  //
-  // This grow effect is done with a single CSS `transform: scale()` on the
-  // wrapper — deliberately NOT by animating its width/height (that makes the
-  // R3F canvas inside it resize its actual render target every frame via a
-  // ResizeObserver, which fires a frame or two *after* the CSS change; during
-  // that lag the still-old aspect/resolution briefly renders skewed toward a
-  // corner, which is exactly the transient "runs to the corner, then snaps
-  // back" glitch this was causing). A `scale` transform only magnifies the
-  // already-rendered pixels — the canvas's own layout size never changes, so
-  // there's nothing for a resize observer to react to, and it stays perfectly
-  // in sync with scroll every frame. The wrapper's base size is small enough
-  // that the rock sits well inside it with margin to spare, so once the
-  // scaled-up box exceeds the viewport, its own edges are off-screen and
-  // never show up as a hard clip.
-  const wrapperScale = useTransform(smoothVoyageProgress, [0, 0.15], [1, 6]);
+  // Deep-space drift: the rock starts small and far off, and scrolling flies
+  // the 3D camera into it (see CameraRig in Model3DViewer) before handing off
+  // to the planet-approach phase. The canvas is full-screen and the motion
+  // happens inside the 3D scene — not via a CSS scale on a small canvas,
+  // which magnified rendered pixels up to 6x and looked blurry up close.
+  // Only the hand-off fade is still done here.
   const modelOpacity = useTransform(smoothVoyageProgress, [0, 0.15, 0.2], [1, 1, 0]);
-  // Plain vh units (not a percentage) — safe to combine with `scale` on the
-  // same element, since only percentage-based translate offsets have the
-  // stale-reference-size problem described above.
-  const modelY = useTransform(smoothVoyageProgress, [0, 0.15], ['8vh', '0vh']);
   // These all use the spring-smoothed progress, not the raw scroll value —
   // see smoothVoyageProgress above. The planets' own flight paths (x/y/scale
   // in flightPaths, further below) span nearly the whole viewport and were
@@ -170,7 +193,7 @@ export default function CosmicVoyage() {
 
   const openSong = (song: typeof songs[number]) => {
     if (song.unlocked) {
-      router.push(`/song/${song.slug}`);
+      goToSong(song.slug);
       return;
     }
     const requiredTool = signalTools.find((tool) => tool.songId === song.id);
@@ -220,18 +243,20 @@ export default function CosmicVoyage() {
           style={{ y: cameraY }}
         >
           {starField.map((star, i) => (
-            <motion.span
+            // CSS-animated (see .voyage-star in globals.css), not Framer
+            // Motion — 96 JS-driven infinite animations were a main-thread cost.
+            <span
               key={i}
-              className="absolute rounded-full bg-white"
+              className="voyage-star absolute rounded-full bg-white"
               style={{
                 left: `${star.left}%`,
                 top: `${star.top}%`,
                 width: star.size,
                 height: star.size,
-                opacity: star.opacity,
-              }}
-              animate={{ opacity: [star.opacity, 1, star.opacity], scale: [1, 1.8, 1] }}
-              transition={{ duration: 3.2 + (i % 5), delay: star.delay, repeat: Infinity }}
+                '--star-o': star.opacity,
+                '--star-dur': `${3.2 + (i % 5)}s`,
+                '--star-delay': `${star.delay}s`,
+              } as CSSProperties}
             />
           ))}
         </motion.div>
@@ -250,18 +275,14 @@ export default function CosmicVoyage() {
           className="pointer-events-none fixed inset-0 flex h-screen items-center justify-center px-5 pt-24"
           style={{ opacity: voyageOpacity }}
         >
-          {/* Centered with CSS Grid (place-items-center) rather than
-              absolute + left/top-50% + -translate-50%, so grid alignment is
-              computed from the child's untransformed layout box and the
-              `scale`/`y` transform below can't disturb it. */}
-          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-            <motion.div
-              className="h-[44vmin] w-[44vmin] min-h-64 min-w-64"
-              style={{ y: modelY, opacity: modelOpacity, scale: wrapperScale }}
-            >
-              <Model3DGate progress={smoothVoyageProgress} />
-            </motion.div>
-          </div>
+          {/* Full-screen 3D layer; the fly-in itself is camera movement
+              inside the scene, only the fade-out is a CSS opacity here. */}
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-10"
+            style={{ opacity: modelOpacity }}
+          >
+            <Model3DGate progress={smoothVoyageProgress} />
+          </motion.div>
 
           <motion.div
             className="pointer-events-none absolute inset-0 z-20"
@@ -328,21 +349,44 @@ export default function CosmicVoyage() {
         id="signal-tools"
         className="relative z-30 mx-auto max-w-6xl px-5 py-28"
       >
-        <div className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-[0.9fr_1.1fr] md:items-end">
+        <div className="mb-10 grid grid-cols-1 gap-8 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.34em] text-cyan-100/42">SIGNAL TOOLS</p>
-            <h2 className="font-script text-5xl leading-none md:text-7xl">Collect the missing keys.</h2>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.34em] text-white/45">SIGNAL TOOLS</p>
+            <h2 className="w-full max-w-[640px]">
+              <Image
+                src="/images/收集遗失的钥匙.png"
+                alt="Collect the missing keys."
+                width={2172}
+                height={724}
+                sizes="(min-width: 768px) 640px, 90vw"
+                className="h-auto w-full"
+              />
+            </h2>
           </div>
-          <p className="max-w-xl text-base leading-8 text-white/58">
-            Locked planets are opened by collecting their matching signal tool. Choose a tool below to add it to the ship archive and unlock its song.
-          </p>
+          {/* How-to-play card — same irregular acid-yellow language as the
+              planet and origin cards. */}
+          <div className="relative w-full max-w-sm -rotate-1 px-7 pb-7 pt-8 text-black md:w-[360px]">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible drop-shadow-[0_18px_40px_rgba(0,0,0,0.45)]"
+            >
+              <path
+                d="M3 12 C14 4 36 7 58 3 C76 0 92 2 97 10 C100 34 95 62 98 88 C98 96 90 99 78 97 C56 94 32 99 12 96 C4 95 1 90 2 80 C3 58 0 34 3 12 Z"
+                fill="#D9FF12"
+              />
+            </svg>
+            <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.3em] text-black/55">How to play</p>
+            <p className="text-sm font-semibold leading-6">
+              Drag the signal tool toward the pocket. It runs from you — trap it in a corner and hold until the bar fills.
+            </p>
+            <p className="mt-2 text-xs leading-5 text-black/60">Each recovered tool unlocks a song.</p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-6 md:flex-row md:items-start">
-        <div className="relative min-h-[780px] flex-1 overflow-hidden border border-white/10 bg-black/35 backdrop-blur-xl">
-          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[74vmin] max-h-[640px] w-[74vmin] max-w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
-          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[46vmin] max-h-[410px] w-[46vmin] max-w-[410px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/10" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(126,155,255,0.12),transparent_38%)]" />
+        <div className="relative h-[70vh] min-h-[460px] max-h-[720px] overflow-hidden rounded-[28px] border border-white/10 bg-[#0b0a14]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(120,90,200,0.18),transparent_60%)]" />
 
           {signalTools.map((tool, index) => (
             <SignalToolButton
@@ -368,36 +412,7 @@ export default function CosmicVoyage() {
           />
         </div>
 
-        {/* Right: collected tools log */}
-        <div className="w-full shrink-0 border border-white/10 bg-black/30 p-6 backdrop-blur-xl md:w-64">
-          <p className="mb-6 text-[10px] font-semibold uppercase tracking-[0.34em] text-white/38">Signal Log</p>
-          <div className="space-y-5">
-            {signalTools.map((tool) => {
-              const collected = checkToolCollected(tool.id);
-              return (
-                <div key={tool.id} className={`flex items-center gap-3 transition-opacity duration-500 ${collected ? 'opacity-100' : 'opacity-28'}`}>
-                  <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border transition-all duration-500 ${
-                    collected ? 'border-cyan-100/38 bg-cyan-100/8 shadow-[0_0_24px_rgba(165,231,255,0.14)]' : 'border-white/10 bg-black/40'
-                  }`}>
-                    <Image src={tool.image} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-white/80">{collected ? tool.name : '???'}</p>
-                    <p className="mt-0.5 truncate text-[10px] text-white/38">
-                      {collected ? `Unlocks ${tool.unlocksSong}` : 'Not yet collected'}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-8 border-t border-white/10 pt-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/28">Progress</p>
-            <p className="mt-3 text-3xl font-black">{collectedCount}<span className="text-lg text-white/28">/{signalTools.length}</span></p>
-          </div>
-        </div>
-
-        </div>
+        <SignalSlots tools={signalTools} isCollected={checkToolCollected} onOpenSong={goToSong} />
       </section>
 
       {selectedLocked && (
@@ -542,7 +557,7 @@ export default function CosmicVoyage() {
                   type="button"
                   onClick={() => {
                     setUnlockNotice(null);
-                    if (unlockNotice.songSlug) router.push(`/song/${unlockNotice.songSlug}`);
+                    if (unlockNotice.songSlug) goToSong(unlockNotice.songSlug);
                   }}
                   className="flex-1 rounded-full border border-white/18 bg-white/[0.08] py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition hover:bg-white/[0.14] hover:text-white"
                 >

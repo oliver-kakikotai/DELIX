@@ -1458,3 +1458,22 @@ html {
   65% { transform: scaleX(0.333334); clip-path: inset(0 0 100% 0); }
   100% { transform: scaleX(0); clip-path: inset(0 0 100% 0); }
 }
+
+/* Homepage star field twinkle (CosmicVoyage). Pure CSS on purpose: these used
+   to be ~96 individual Framer Motion infinite animations, all ticking in
+   JavaScript on the main thread every frame and competing with the
+   scroll-linked transforms. Opacity/transform keyframes run on the
+   compositor instead. Each star sets --star-o (base opacity). */
+@keyframes voyage-star-twinkle {
+  0%, 100% { opacity: var(--star-o); transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.8); }
+}
+
+.voyage-star {
+  opacity: var(--star-o);
+  animation: voyage-star-twinkle var(--star-dur) ease-in-out var(--star-delay) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voyage-star { animation: none; }
+}
