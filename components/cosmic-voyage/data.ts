@@ -5,7 +5,6 @@ export const starField = Array.from({ length: 96 }, (_, i) => ({
   top: (i * 83 + 19) % 100,
   size: 1 + ((i * 13) % 3),
   opacity: 0.22 + ((i * 17) % 55) / 100,
-  delay: ((i * 29) % 80) / 10,
 }));
 
 export const flightPaths = [

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -15,6 +15,7 @@ import { PocketRecoveryGame } from './cosmic-voyage/PocketRecoveryGame';
 import { OriginFile } from './cosmic-voyage/OriginFile';
 import { SignalSlots } from './cosmic-voyage/SignalSlots';
 import { LockedSignalAlert } from './cosmic-voyage/LockedSignalAlert';
+import StarField from './StarField';
 import { starField } from './cosmic-voyage/data';
 
 // Homepage scroll position saved when leaving for a song page, so coming back
@@ -267,23 +268,7 @@ export default function CosmicVoyage() {
           className="absolute inset-[-20%] opacity-35"
           style={{ y: cameraY }}
         >
-          {starField.map((star, i) => (
-            // CSS-animated (see .voyage-star in globals.css), not Framer
-            // Motion — 96 JS-driven infinite animations were a main-thread cost.
-            <span
-              key={i}
-              className="voyage-star absolute rounded-full bg-white"
-              style={{
-                left: `${star.left}%`,
-                top: `${star.top}%`,
-                width: star.size,
-                height: star.size,
-                '--star-o': star.opacity,
-                '--star-dur': `${3.2 + (i % 5)}s`,
-                '--star-delay': `${star.delay}s`,
-              } as CSSProperties}
-            />
-          ))}
+          <StarField stars={starField} />
         </motion.div>
         <motion.div
           className="absolute left-1/2 top-1/2 h-[78vmin] w-[78vmin] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10"

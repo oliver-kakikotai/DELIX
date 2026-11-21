@@ -49,7 +49,9 @@ export function VoyagePlanet({
     [holdStart, infoIn, infoOut, holdEnd],
     ['28vh', '0vh', '0vh', '-34vh']
   );
-  const depthGlow = useTransform(progress, song.path.range, [0, 0.12, 0.28, 0.28, 0]);
+  // (No glow behind the planet: a large radial gradient scaled up ~3x with
+  // the planet had to be re-rasterised every frame, and was one of the two
+  // main causes of dropped frames in this section.)
   // A side card on the left or right, alternating per song. On phones it's a
   // narrow portrait card hugging the edge so the planet stays visible.
   const infoPlacementClass = song.path.infoPlacement === 'left'
@@ -65,16 +67,6 @@ export function VoyagePlanet({
         className="pointer-events-auto absolute left-1/2 top-1/2 z-20 grid h-[28vmin] min-h-40 w-[28vmin] min-w-40 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-center"
         style={{ x, y, scale: planetScale, opacity: planetOpacity }}
       >
-        <motion.span
-          className="absolute h-[30vmin] w-[30vmin] rounded-full"
-          style={{
-            opacity: depthGlow,
-            // Soft falloff baked into the gradient stops instead of a
-            // `filter: blur(34px)` — that blur had to be recomputed on every
-            // scroll frame as the planet scales up to ~3x.
-            background: `radial-gradient(circle, ${song.color || '#ffffff'}40 0%, ${song.color || '#ffffff'}22 35%, ${song.color || '#ffffff'}0a 60%, transparent 78%)`,
-          }}
-        />
         <motion.span
           className="relative grid h-full w-full overflow-hidden rounded-full"
         >

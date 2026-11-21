@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getSongBySlug } from '@/data/albumData';
@@ -9,6 +9,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useUnlock } from '@/contexts/UnlockContext';
 import LyricsDisplay from '@/components/LyricsDisplay';
 import SongTitle from '@/components/SongTitle';
+import StarField from '@/components/StarField';
 
 const songWorlds: Record<string, {
   background: string;
@@ -51,14 +52,12 @@ const songWorlds: Record<string, {
   },
 };
 
-// Fixed twinkling background stars (same CSS animation as the homepage).
+// Fixed twinkling background stars (same StarField as the homepage).
 const backgroundStars = Array.from({ length: 38 }, (_, i) => ({
   left: (i * 37 + 9) % 100,
   top: (i * 61 + 17) % 100,
   size: 1 + (i % 3),
   opacity: 0.18 + ((i * 11) % 45) / 100,
-  duration: 3 + (i % 5),
-  delay: (i % 7) * 0.3,
 }));
 
 export default function SongPage() {
@@ -141,21 +140,7 @@ export default function SongPage() {
             soft dark backing below for legibility. */}
         <div className="absolute inset-0 bg-black/30" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,transparent_0%,rgba(0,0,0,0.12)_45%,rgba(0,0,0,0.72)_100%)]" />
-        {backgroundStars.map((star, i) => (
-          <span
-            key={i}
-            className="voyage-star absolute rounded-full bg-white"
-            style={{
-              left: `${star.left}%`,
-              top: `${star.top}%`,
-              width: star.size,
-              height: star.size,
-              '--star-o': star.opacity,
-              '--star-dur': `${star.duration}s`,
-              '--star-delay': `${star.delay}s`,
-            } as CSSProperties}
-          />
-        ))}
+        <StarField stars={backgroundStars} />
       </div>
 
       {/* ── Back to album (same pill style as the homepage nav) ── */}

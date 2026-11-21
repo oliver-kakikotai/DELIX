@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, Environment, Float, Lightformer } from '@react-three/drei';
 import { Suspense, useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
+import engravingConfig from './engravingConfig.json';
 import type { MotionValue } from 'framer-motion';
 
 const BASE_SCALE = 1.5;
@@ -40,26 +40,20 @@ const LOCK_START = 0.05;
 const LOCK_END = 0.095;
 
 // ── Engraving ────────────────────────────────────────────────────────────
-// Placed on the flattest patch of the rock, found offline by ray-sampling
-// depth variation over the decal footprint around the model: azimuth 40°,
-// elevation −10° (depth std ≈ 3.5% of the decal width there). Nudged to
-// 36° so a raised ridge doesn't cut across the last letters.
-const ENGRAVE_AZIMUTH_DEG = 36;
-const ENGRAVE_ELEVATION_DEG = -10;
-// Decal footprint in model units (the model spans ~1.0 before BASE_SCALE).
-const ENGRAVE_WIDTH = 0.3;
-const ENGRAVE_HEIGHT = 0.17;
-// Projection depth — enough to wrap over the surface bumps in that patch.
-const ENGRAVE_DEPTH = 0.15;
+// "Hola, this is Delix", placed on the flattest patch of the rock (found by
+// ray-sampling depth variation around the model). Its placement lives in
+// engravingConfig.json, shared with scripts/bake-engraving.mjs, which
+// pre-computes the decal mesh into ENGRAVING_PATH — projecting it at
+// runtime blocked the main thread for 100–250 ms on every page load.
+// Re-run the bake script after changing the config or the model.
+const ENGRAVING_PATH = '/models/hitem3d-engraving.bin';
+const ENGRAVE_AZIMUTH_DEG = engravingConfig.azimuthDeg;
+const ENGRAVE_ELEVATION_DEG = engravingConfig.elevationDeg;
+// Decal footprint width in model units (the model spans ~1.0 before BASE_SCALE).
+const ENGRAVE_WIDTH = engravingConfig.width;
 // The camera holds where the engraving spans this much of the view width.
 const ENGRAVE_VIEW_FRACTION_LANDSCAPE = 0.42;
 const ENGRAVE_VIEW_FRACTION_PORTRAIT = 0.8;
-
-const engraveDirection = () => {
-  const phi = THREE.MathUtils.degToRad(ENGRAVE_AZIMUTH_DEG);
-  const el = THREE.MathUtils.degToRad(ENGRAVE_ELEVATION_DEG);
-  return new THREE.Vector3(Math.sin(phi) * Math.cos(el), Math.sin(el), Math.cos(phi) * Math.cos(el)).normalize();
-};
 
 // Rotation about Y that turns the engraved face toward the camera (+Z).
 const ENGRAVE_FACING_ANGLE = -THREE.MathUtils.degToRad(ENGRAVE_AZIMUTH_DEG);
@@ -125,10 +119,9 @@ function CameraRig({ progress }: { progress?: MotionValue<number> }) {
   return null;
 }
 
-// Approximate distance from the rock's center to the engraved patch, in
-// model units (the measured hit distance there was ~0.427). Used for the
-// camera framing above; the decal itself uses an exact raycast hit.
-const ENGRAVE_SURFACE_RADIUS = 0.427;
+// Distance from the rock's center to the engraved patch, in model units
+// (printed by the bake script). Used for the camera framing above.
+const ENGRAVE_SURFACE_RADIUS = 0.44;
 
 // Draws the engraving onto a transparent canvas: the text cut into the
 // stone (dark, softened) with a faint lit lower lip, like a carved groove
@@ -177,10 +170,12 @@ function Model3DObject({
   // (re-centered) object itself in place, with a fixed camera, keeps the
   // framing stable regardless of the source pivot.
   //
-  // Also projects the engraving decal onto the surface (once per load).
-  const { clonedScene, engravingTexture } = useMemo(() => {
+  // Also adds the (initially empty) engraving mesh; its baked geometry and
+  // its text texture are filled in asynchronously below.
+  const { clonedScene, engraving } = useMemo(() => {
     const clone = scene.clone();
-    clone.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(clone);
+    const center = box.getCenter(new THREE.Vector3());
 
     const canvas = document.createElement('canvas');
     canvas.width = 1440;
@@ -188,58 +183,44 @@ function Model3DObject({
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 8;
-
-    let target: THREE.Mesh | undefined;
-    clone.traverse((obj) => {
-      if (!target && (obj as THREE.Mesh).isMesh) target = obj as THREE.Mesh;
-    });
-    if (target) {
-      // DecalGeometry needs vertex normals; the GLB has none (it renders
-      // flat-shaded), so project against a temporary copy that has them.
-      const withNormals = new THREE.Mesh(target.geometry.clone());
-      withNormals.geometry.computeVertexNormals();
-      withNormals.matrixWorld.copy(target.matrixWorld);
-      withNormals.matrixAutoUpdate = false;
-
-      const dir = engraveDirection();
-      const raycaster = new THREE.Raycaster(dir.clone().multiplyScalar(3), dir.clone().negate());
-      const hit = raycaster.intersectObject(withNormals, false)[0];
-      if (hit) {
-        // Projector basis: x = text right, y = text up, z = outward normal.
-        const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize();
-        const up = new THREE.Vector3().crossVectors(dir, right).normalize();
-        const orientation = new THREE.Euler().setFromRotationMatrix(
-          new THREE.Matrix4().makeBasis(right, up, dir)
-        );
-        const decalGeometry = new DecalGeometry(
-          withNormals,
-          hit.point,
-          orientation,
-          new THREE.Vector3(ENGRAVE_WIDTH, ENGRAVE_HEIGHT, ENGRAVE_DEPTH)
-        );
-        const decal = new THREE.Mesh(
-          decalGeometry,
-          new THREE.MeshStandardMaterial({
-            map: texture,
-            transparent: true,
-            depthWrite: false,
-            polygonOffset: true,
-            polygonOffsetFactor: -4,
-            roughness: 0.9,
-            metalness: 0,
-          })
-        );
-        decal.name = 'engraving';
-        clone.add(decal);
-      }
-      withNormals.geometry.dispose();
-    }
-
-    const box = new THREE.Box3().setFromObject(clone);
-    const center = box.getCenter(new THREE.Vector3());
+    const mesh = new THREE.Mesh(
+      new THREE.BufferGeometry(),
+      new THREE.MeshStandardMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -4,
+        roughness: 0.9,
+        metalness: 0,
+      })
+    );
+    // Baked in the model's local space, same as the rock mesh.
+    clone.add(mesh);
     clone.position.sub(center);
-    return { clonedScene: clone, engravingTexture: texture };
+    return { clonedScene: clone, engraving: { mesh, texture } };
   }, [scene]);
+
+  // Load the pre-baked decal geometry (see scripts/bake-engraving.mjs).
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(ENGRAVING_PATH, { signal: controller.signal })
+      .then((res) => res.arrayBuffer())
+      .then((buf) => {
+        const data = new Float32Array(buf);
+        const n = data[0];
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(data.slice(1, 1 + n * 3), 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(data.slice(1 + n * 3, 1 + n * 6), 3));
+        geometry.setAttribute('uv', new THREE.BufferAttribute(data.slice(1 + n * 6, 1 + n * 8), 2));
+        engraving.mesh.geometry.dispose();
+        engraving.mesh.geometry = geometry;
+      })
+      .catch(() => {
+        /* aborted, or missing file — the rock just shows without the text */
+      });
+    return () => controller.abort();
+  }, [engraving]);
 
   // Draw the text once the handwritten logo font has loaded (next/font
   // exposes its generated family name through the --font-yellowtail var).
@@ -252,22 +233,19 @@ function Model3DObject({
       .catch(() => undefined)
       .then(() => {
         if (cancelled) return;
-        drawEngraving(engravingTexture.image as HTMLCanvasElement, family);
-        engravingTexture.needsUpdate = true;
+        drawEngraving(engraving.texture.image as HTMLCanvasElement, family);
+        engraving.texture.needsUpdate = true;
       });
     return () => {
       cancelled = true;
     };
-  }, [engravingTexture]);
+  }, [engraving]);
 
   useEffect(() => () => {
-    engravingTexture.dispose();
-    const decal = clonedScene.getObjectByName('engraving') as THREE.Mesh | undefined;
-    if (decal) {
-      decal.geometry.dispose();
-      (decal.material as THREE.Material).dispose();
-    }
-  }, [clonedScene, engravingTexture]);
+    engraving.texture.dispose();
+    engraving.mesh.geometry.dispose();
+    (engraving.mesh.material as THREE.Material).dispose();
+  }, [engraving]);
 
   useFrame((state, delta) => {
     if (!modelRef.current) return;

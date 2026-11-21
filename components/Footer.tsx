@@ -108,15 +108,16 @@ export default function Footer() {
             viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
           >
-            {/* The logo file is white-on-transparent; brightness(0) renders it
-                black to sit on the acid-yellow footer. */}
+            {/* A pre-made black copy of the white logo (alpha preserved).
+                It used to be the white file with a CSS brightness(0) filter,
+                which didn't render on mobile Safari inside this animated h2. */}
             <Image
-              src="/images/白色手写体 Delix 环形标志.png"
+              src="/images/delix-logo-black.png"
               alt="DELIX"
               width={2172}
               height={724}
               sizes="(min-width: 1500px) 960px, 64vw"
-              className="h-auto w-full brightness-0"
+              className="h-auto w-full"
             />
           </motion.h2>
         </div>

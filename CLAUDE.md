@@ -16,6 +16,7 @@ npm run lint          # ESLint (next/core-web-vitals + next/typescript)
 npx tsc --noEmit      # type check
 npm test              # run tests once (Vitest)
 npm run test:watch    # Vitest watch mode
+npm run bake:engraving # re-bake the rock's "Hola, this is Delix" decal after changing the model or components/engravingConfig.json
 ```
 
 **Development URL:** http://localhost:3000

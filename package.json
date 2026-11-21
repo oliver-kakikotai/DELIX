@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "bake:engraving": "node scripts/bake-engraving.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.6.0",

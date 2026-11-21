@@ -1456,23 +1456,21 @@ html {
   100% { transform: scaleX(0); clip-path: inset(0 0 100% 0); }
 }
 
-/* Homepage star field twinkle (CosmicVoyage). Pure CSS on purpose: these used
-   to be ~96 individual Framer Motion infinite animations, all ticking in
-   JavaScript on the main thread every frame and competing with the
-   scroll-linked transforms. Opacity/transform keyframes run on the
-   compositor instead. Each star sets --star-o (base opacity). */
-@keyframes voyage-star-twinkle {
-  0%, 100% { opacity: var(--star-o); transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.8); }
+/* Star field twinkle (components/StarField.tsx): a few SVG groups whose
+   opacity pulses — one compositor layer per group instead of one per star. */
+@keyframes starfield-twinkle {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 
-.voyage-star {
-  opacity: var(--star-o);
-  animation: voyage-star-twinkle var(--star-dur) ease-in-out var(--star-delay) infinite;
+.starfield-group {
+  animation-name: starfield-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .voyage-star { animation: none; }
+  .starfield-group { animation: none; }
 }
 
 /* Homepage phase "warning tag" (PhaseWarning in ProgressGates.tsx):
