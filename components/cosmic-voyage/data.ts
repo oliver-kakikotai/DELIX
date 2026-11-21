@@ -23,7 +23,9 @@ export const flightPaths = [
     infoPlacement: 'left',
   },
   {
-    x: ['-54vw', '-24vw', '-2vw', '-2vw', '58vw'],
+    // Held left of center, opposite its right-hand card — at -2vw the
+    // ~3.4x planet sat right under the card.
+    x: ['-60vw', '-34vw', '-22vw', '-22vw', '58vw'],
     y: ['58vh', '26vh', '4vh', '4vh', '-42vh'],
     scale: [0.06, 0.9, 3.36, 3.36, 0.14],
     range: [0.54, 0.575, 0.61, 0.66, 0.69],

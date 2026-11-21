@@ -171,7 +171,7 @@ function Polaroid({
 
   return (
     <motion.figure
-      className={`absolute bg-[#F4F1E8] p-2.5 pb-10 shadow-[0_30px_70px_rgba(0,0,0,0.55)] md:p-4 md:pb-16 ${
+      className={`absolute bg-[#F4F1E8] p-2.5 pb-3 shadow-[0_30px_70px_rgba(0,0,0,0.55)] md:p-4 md:pb-5 ${
         // Square photos: fit within ~half the viewport height. The wide comic
         // gets more width so every panel stays legible.
         isWide ? 'w-[min(90vw,110vh)]' : 'w-[min(74vw,52vh)]'
@@ -186,7 +186,10 @@ function Polaroid({
         sizes={isWide ? '(min-width: 768px) 1100px, 90vw' : '(min-width: 768px) 520px, 74vw'}
         className="h-auto w-full bg-black"
       />
-      <figcaption className="absolute inset-x-3 bottom-2 font-script text-base leading-tight text-black/75 md:inset-x-5 md:bottom-4 md:text-2xl">
+      {/* In normal flow (not absolutely positioned in a fixed-height strip),
+          so the polaroid's bottom margin grows to fit a two-line caption
+          instead of the text running up over the photo. */}
+      <figcaption className="mt-2 px-1 font-script text-base text-black/75 md:mt-3 md:px-2 md:text-2xl">
         {photo.caption}
       </figcaption>
     </motion.figure>

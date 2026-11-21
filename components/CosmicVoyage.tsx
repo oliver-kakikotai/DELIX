@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { albumData } from '@/data/albumData';
@@ -85,16 +85,11 @@ export default function CosmicVoyage() {
   });
   const portalProgress = useTransform(portalRaw, [0, 1], [0, PORTAL_END]);
   const planetsProgress = useTransform(planetsRaw, [0, 1], [PLANET_INTRO_START, 1]);
-  // Mouse-wheel scrolling delivers position updates in coarse, discrete jumps
-  // (unlike a trackpad's much higher-frequency stream). Feeding that directly
-  // into the portal model's grow/fade animation makes an otherwise-continuous
-  // useTransform curve look like it's snapping between sizes/positions. This
-  // spring re-adds motion between those discrete updates so it eases smoothly
-  // regardless of how chunky the underlying scroll events are. Scoped to the
-  // model only — other scroll-linked elements aren't affected.
-  const springConfig = { stiffness: 260, damping: 32, mass: 0.6 };
-  const smoothPortalProgress = useSpring(portalProgress, springConfig);
-  const smoothVoyageProgress = useSpring(planetsProgress, springConfig);
+  // Everything below is driven straight from these scroll values — no
+  // smoothing spring. A spring (added for mouse wheels' discrete jumps) made
+  // the rock and planets trail the trackpad by 150–500ms ("can't keep up with
+  // my hand"); trackpads are already continuous and Chrome/Safari smooth
+  // mouse-wheel steps themselves, so it only added lag.
   const [selectedLocked, setSelectedLocked] = useState<LockedMission | null>(null);
   // The tool just recovered; SongUnlockedAlert shows the song it unlocked.
   const [unlockedTool, setUnlockedTool] = useState<SignalTool | null>(null);
@@ -134,25 +129,20 @@ export default function CosmicVoyage() {
   // happens inside the 3D scene — not via a CSS scale on a small canvas,
   // which magnified rendered pixels up to 6x and looked blurry up close.
   // Only the hand-off fade is still done here.
-  const modelOpacity = useTransform(smoothPortalProgress, [0, 0.15, 0.2], [1, 1, 0]);
-  // These all use the spring-smoothed progress, not the raw scroll value —
-  // see smoothVoyageProgress above. The planets' own flight paths (x/y/scale
-  // in flightPaths, further below) span nearly the whole viewport and were
-  // originally driven by raw voyageProgress directly; a single coarse
-  // mouse-wheel tick could jump the raw progress far enough within a
-  // planet's narrow range window to make it visually teleport across the
-  // screen instead of flying across it, which got much worse on a fast
-  // reverse scroll. Keeping every transform in this phase (opacities,
-  // planets, tool beacons, phase label) on the same smoothed value keeps
-  // them moving together and eases out those jumps instead of snapping.
-  const orbitOpacity = useTransform(smoothVoyageProgress, [0.2, 0.26, 0.92, 1], [0, 0.36, 0.24, 0]);
-  const portalOpacity = useTransform(smoothPortalProgress, [0, 0.08, 0.15], [1, 1, 0]);
+  const modelOpacity = useTransform(portalProgress, [0, 0.15, 0.2], [1, 1, 0]);
+  // Every transform in this phase (opacities, planets, phase label) reads
+  // the same progress value, so they always move together. If a coarse,
+  // non-smoothed mouse wheel ever makes planets visibly jump between narrow
+  // flight-path windows, add light smoothing for wheel input only — not a
+  // spring on everything (see the note at portalProgress/planetsProgress).
+  const orbitOpacity = useTransform(planetsProgress, [0.2, 0.26, 0.92, 1], [0, 0.36, 0.24, 0]);
+  const portalOpacity = useTransform(portalProgress, [0, 0.08, 0.15], [1, 1, 0]);
   // Bridge from the origin story into the songs — visible as the planet
   // section slides in, gone just before the first planet arrives.
-  const introOpacity = useTransform(smoothVoyageProgress, [PLANET_INTRO_START, 0.19, 0.205], [1, 1, 0]);
-  const introY = useTransform(smoothVoyageProgress, [PLANET_INTRO_START, 0.205], ['0vh', '-6vh']);
-  const planetLayerOpacity = useTransform(smoothVoyageProgress, [0.2, 0.22, 0.965, 0.99], [0, 1, 1, 0]);
-  const voyageOpacity = useTransform(smoothVoyageProgress, [0, 0.94, 1], [1, 1, 0]);
+  const introOpacity = useTransform(planetsProgress, [PLANET_INTRO_START, 0.19, 0.205], [1, 1, 0]);
+  const introY = useTransform(planetsProgress, [PLANET_INTRO_START, 0.205], ['0vh', '-6vh']);
+  const planetLayerOpacity = useTransform(planetsProgress, [0.2, 0.22, 0.965, 0.99], [0, 1, 1, 0]);
+  const voyageOpacity = useTransform(planetsProgress, [0, 0.94, 1], [1, 1, 0]);
 
   const songs = useMemo(() => (
     albumData.songs
@@ -232,7 +222,7 @@ export default function CosmicVoyage() {
             className="pointer-events-none absolute inset-0 z-10"
             style={{ opacity: modelOpacity }}
           >
-            <Model3DGate progress={smoothPortalProgress} />
+            <Model3DGate progress={portalProgress} />
           </motion.div>
 
           <motion.div
@@ -246,7 +236,7 @@ export default function CosmicVoyage() {
             </div>
           </motion.div>
 
-          <PhaseWarning progress={smoothPortalProgress} phaseSet="portal" />
+          <PhaseWarning progress={portalProgress} phaseSet="portal" />
         </div>
       </section>
 
@@ -289,13 +279,13 @@ export default function CosmicVoyage() {
               <VoyagePlanet
                 key={song.id}
                 song={song}
-                progress={smoothVoyageProgress}
+                progress={planetsProgress}
                 onClick={() => openSong(song)}
               />
             ))}
           </motion.div>
 
-          <PhaseWarning progress={smoothVoyageProgress} phaseSet="voyage" />
+          <PhaseWarning progress={planetsProgress} phaseSet="voyage" />
         </motion.div>
       </section>
 
