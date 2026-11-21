@@ -89,7 +89,7 @@ export function VoyagePlanet({
           type="button"
           onClick={onClick}
           aria-label={song.unlocked ? `Open ${song.title}` : `${song.title} is locked`}
-          className={`pointer-events-auto fixed bottom-[12vh] z-40 w-[46vw] max-w-[240px] px-5 pb-7 pt-9 text-left md:w-[min(42vw,480px)] md:max-w-none md:px-9 md:pb-8 md:pt-11 ${infoPlacementClass}`}
+          className={`pointer-events-auto fixed bottom-[12svh] z-40 w-[46vw] max-w-[240px] px-5 pb-7 pt-9 text-left md:w-[min(42vw,480px)] md:max-w-none md:px-9 md:pb-8 md:pt-11 ${infoPlacementClass}`}
           style={{ y: infoY, opacity: infoOpacity }}
         >
           {/* Per-song irregular card shape, stretched to the card's box: a
@@ -118,7 +118,7 @@ export function VoyagePlanet({
             dark
             sizes="(min-width: 768px) 420px, 46vw"
             className={song.titleImage ? 'w-full max-w-[420px]' : 'text-2xl leading-none text-black md:text-6xl'}
-            imageClassName="max-h-[18vh] object-contain object-left"
+            imageClassName="max-h-[18svh] object-contain object-left"
           />
           <p className="mt-3 line-clamp-6 max-w-md text-xs leading-5 text-black/65 md:mt-4 md:line-clamp-none md:text-sm md:leading-7">
             {song.intro || song.description || 'A passing world in the DELIX archive.'}

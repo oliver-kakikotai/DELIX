@@ -79,8 +79,8 @@ export function OriginFile() {
   const hintOpacity = useTransform(p, [0, 0.06, 0.3, 0.36], [1, 1, 1, 0]);
 
   return (
-    <section ref={sectionRef} className="relative z-30 h-[420vh] bg-black">
-      <div className="sticky top-0 h-screen overflow-hidden">
+    <section ref={sectionRef} className="relative z-30 h-[420svh] bg-black">
+      <div className="sticky top-0 h-svh overflow-hidden">
         {/* ── The artwork, full colour ── */}
         <motion.div
           className="absolute inset-0"
@@ -99,12 +99,12 @@ export function OriginFile() {
         </motion.div>
         {/* Thin fades top and bottom only, so the section blends into the
             starfield around it without dimming the art itself. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[14vh] bg-gradient-to-b from-black to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[18vh] bg-gradient-to-t from-black/80 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[14svh] bg-gradient-to-b from-black to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[18svh] bg-gradient-to-t from-black/80 to-transparent" />
 
         {/* ── Act 1 copy card ── */}
         <motion.div
-          className="absolute bottom-[9vh] left-[4vw] z-10 w-[min(88vw,460px)] px-7 pb-8 pt-9 text-black md:left-[6vw] md:px-10 md:pb-10 md:pt-12"
+          className="absolute bottom-[9svh] left-[4vw] z-10 w-[min(88vw,460px)] px-7 pb-8 pt-9 text-black md:left-[6vw] md:px-10 md:pb-10 md:pt-12"
           style={{ opacity: cardOpacity, y: cardY, rotate: cardRotate }}
         >
           <svg

@@ -83,9 +83,6 @@ export const signalTools = [
     unlocksSong: 'Tomorrow',
     image: '/images/egg.png',
     clue: 'Recovered in the final transmission after the first orbit pass.',
-    range: [0.345, 0.365, 0.385],
-    x: ['66vw', '52vw', '36vw'],
-    y: ['28vh', '6vh', '-18vh'],
   },
   {
     id: 1,
@@ -94,9 +91,6 @@ export const signalTools = [
     unlocksSong: 'The Real Reason',
     image: '/images/NS.png',
     clue: 'Found in the navigation log where the route first breaks open.',
-    range: [0.505, 0.525, 0.55],
-    x: ['-62vw', '-48vw', '-28vw'],
-    y: ['24vh', '4vh', '-22vh'],
   },
   {
     id: 3,
@@ -105,9 +99,6 @@ export const signalTools = [
     unlocksSong: 'Salmon and Potatoes',
     image: '/images/stone.png',
     clue: 'Buried in a memory fragment from the archive corridor.',
-    range: [0.665, 0.685, 0.71],
-    x: ['58vw', '42vw', '24vw'],
-    y: ['-24vh', '-2vh', '20vh'],
   },
   {
     id: 4,
@@ -116,9 +107,6 @@ export const signalTools = [
     unlocksSong: 'The Ascension',
     image: '/images/diamond.png',
     clue: 'Held at the far edge of the ship log, close to the exit vector.',
-    range: [0.825, 0.845, 0.87],
-    x: ['-56vw', '-36vw', '-18vw'],
-    y: ['-28vh', '-4vh', '24vh'],
   },
 ];
 

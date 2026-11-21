@@ -110,7 +110,7 @@ export default function SongPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden text-white" style={{ background: world.background }}>
+    <div className="relative min-h-svh overflow-hidden text-white" style={{ background: world.background }}>
       {/* ── Background world ── */}
       <div className="pointer-events-none fixed inset-0">
         {world.media === 'video' && world.mediaSrc ? (
@@ -157,7 +157,7 @@ export default function SongPage() {
       </motion.button>
 
       {/* ── Content: title + world card on the left, lyrics on the right ── */}
-      <main className="relative z-10 mx-auto grid min-h-screen max-w-6xl grid-cols-1 items-center gap-10 px-5 pb-36 pt-24 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-14">
+      <main className="relative z-10 mx-auto grid min-h-svh max-w-6xl grid-cols-1 items-center gap-10 px-5 pb-36 pt-24 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-14">
         <motion.section
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
@@ -169,7 +169,7 @@ export default function SongPage() {
             titleImage={song.titleImage}
             sizes="(min-width: 768px) 520px, 90vw"
             className={song.titleImage ? 'w-full max-w-[520px]' : 'text-6xl leading-none md:text-8xl'}
-            imageClassName="max-h-[30vh] object-contain object-left"
+            imageClassName="max-h-[30svh] object-contain object-left"
           />
 
         </motion.section>
@@ -187,7 +187,7 @@ export default function SongPage() {
             key={song.id}
             lyricsPath={song.lyricsPath}
             accent={world.accent}
-            className="h-[62vh] min-h-[420px]"
+            className="h-[62svh] min-h-[420px]"
           />
         </motion.section>
       </main>
