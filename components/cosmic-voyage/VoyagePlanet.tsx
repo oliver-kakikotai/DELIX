@@ -88,7 +88,7 @@ export function VoyagePlanet({
       </motion.button>
 
       {isNear && (
-        // No card background: the label, particle title and intro sit
+        // No card background or label: the particle title and intro sit
         // straight on the star dust. The title is formed by DustField out of
         // the background's own grains (ParticleTitle only marks where).
         <button
@@ -97,12 +97,6 @@ export function VoyagePlanet({
           aria-label={song.unlocked ? `Open ${song.title}` : `${song.title} is locked`}
           className={`pointer-events-auto fixed bottom-[12svh] z-40 w-[46vw] max-w-[240px] px-1 text-left md:w-[min(42vw,480px)] md:max-w-none md:px-2 ${infoPlacementClass}`}
         >
-          <motion.p
-            className="mb-3 text-[9px] font-semibold uppercase tracking-[0.22em] text-white/50 md:text-[10px] md:tracking-[0.34em]"
-            style={{ opacity: infoOpacity }}
-          >
-            {song.unlocked ? 'UNLOCKED SIGNAL' : 'LOCKED SIGNAL'}
-          </motion.p>
           {song.titleImageDark ? (
             <ParticleTitle
               src={song.titleImageDark}
