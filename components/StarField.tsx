@@ -8,6 +8,10 @@
 // Here stars are split into a few groups; each group is one SVG whose
 // opacity is animated in CSS (`.starfield-group` in globals.css) — so it's
 // one layer per group, still twinkling, just in sync within a group.
+//
+// Stars are small squares (0.75–2.25 px), the same grains as RockDust around
+// the 3D rock and the particle song titles (ParticleTitle), so the whole page
+// reads as one field of star dust.
 
 export type Star = {
   left: number; // %
@@ -33,11 +37,12 @@ export default function StarField({ stars, className = '' }: { stars: Star[]; cl
         >
           {stars.map((star, i) =>
             i % GROUP_TIMINGS.length === g ? (
-              <circle
+              <rect
                 key={i}
-                cx={`${star.left}%`}
-                cy={`${star.top}%`}
-                r={star.size / 2}
+                x={`${star.left}%`}
+                y={`${star.top}%`}
+                width={star.size * 0.75}
+                height={star.size * 0.75}
                 fill="#fff"
                 fillOpacity={star.opacity}
               />

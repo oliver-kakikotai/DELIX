@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { LockedMission } from './data';
 
 // Pop-up when a visitor clicks a locked planet. Same playful "warning"
-// language as the PhaseWarning tag (white caution-tape stripes, blink-in),
+// language as the PhaseWarning tag (hand-lettered tag),
 // and it shows the actual key needed rather than just its name. Centred
 // with a dimmed backdrop, so it never sits on top of the planet's own card.
 export function LockedSignalAlert({
@@ -62,12 +62,10 @@ export function LockedSignalAlert({
             }}
           >
             {/* Warning tag */}
-            <div className="hazard-tag-flash flex items-center justify-center gap-2.5">
-              <span aria-hidden="true" className="hazard-stripes h-2.5 w-9" />
-              <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.38em] text-white/75">
+            <div className="flex items-center justify-center">
+              <span className="whitespace-nowrap font-script text-2xl leading-none text-white/85">
                 Signal locked
               </span>
-              <span aria-hidden="true" className="hazard-stripes hazard-stripes-reverse h-2.5 w-9" />
             </div>
 
             {/* The key this planet needs */}

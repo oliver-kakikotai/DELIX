@@ -35,13 +35,15 @@ CI (`.github/workflows/ci.yml`) runs `tsc → lint → test → build` on every 
 ### CosmicVoyage
 `components/CosmicVoyage.tsx` is the homepage's main component; it orchestrates state and layout only. The page tells the story in order: **portal** (3D rock fly-in) → **OriginFile** (who DELIX is: sole survivor of a lost galaxy, now on Earth) → **planets** (the songs DELIX wrote *on Earth* — not memories of the lost world) → **signal tools** game (unlock the locked songs). The portal and planet sections are separate sticky sections mapped onto one shared voyage-progress scale (portal 0→0.2, planets 0.14→1), so `flightPaths` ranges and other timing constants are on that scale. Its pieces live in `components/cosmic-voyage/`:
 - `data.ts` — static data: `signalTools`, `flightPaths`, `starField`, related types
+- `DustField.tsx` — the homepage's fixed star-dust background (canvas, 3 parallax layers, ~3.5k grains) behind every section, and the source of the grains for `ParticleTitle` formations; same grains as `RockDust`, so the dust runs unbroken from the rock to the planet titles
 - `VoyagePlanet.tsx` — planets during the flight-through phase (the tools/keys deliberately appear only in the game section, not among the planets)
+- `ParticleTitle.tsx` + `dustFormations.ts` — the planet card's song title made of the background star dust: ParticleTitle samples the wordmark's shape (from `titleImageDark`'s alpha) and registers a formation; `DustField` pulls nearly all its grains out of the sky into the letters (only ~110 stay behind) (stir → gather → alive: wobble, wave, escaping grains → fly back home), all on scroll progress so it reverses. No extra particles are added for titles. The card has no background. Static white wordmark under reduced motion. Not used for the "Earth life was strange" intro — tried, unreadable for that long a script line
 - `LockedSignalAlert.tsx` — pop-up when a locked planet is clicked (key required, keys recovered, jump to the game)
 - `SongUnlockedAlert.tsx` — pop-up after a tool is recovered, showing the song it unlocked (derived from the tool; opened by the `collectedTools` effect in CosmicVoyage)
 - `AlbumCompleteFinale.tsx` — shown instead of SongUnlockedAlert when the last tool is recovered: full album tracklist + "play the whole album"
 - `SignalToolsSection.tsx` — the whole game chapter: tool buttons (slot positions clear of the card's label/pressure bar), the chase game, and `SignalSlots`
 - `SignalToolButton.tsx` / `PocketRecoveryGame.tsx` — the signal-tools section and its chase mini-game (canvas-based, imperative render loop)
-- `ProgressGates.tsx` — `Model3DGate` (pauses the 3D model's render loop off-phase) and `PhaseWarning` (bottom-center hazard-stripe phase tag + playful quip, one phase set per section), both isolated so per-frame scroll updates don't re-render the whole tree
+- `ProgressGates.tsx` — `Model3DGate` (pauses the 3D model's render loop off-phase) and `PhaseWarning` (bottom-center hand-lettered phase tag + playful quip, one phase set per section; in the planet section a 5-star song track lights up as each planet arrives — hollow rings for locked songs), both isolated so per-frame scroll updates don't re-render the whole tree
 
 `components/Planet.tsx` is a generic fallback planet visual, only used when a song has no `planetImage` (currently none — every song in `albumData` sets one).
 
@@ -70,7 +72,7 @@ All images go through `next/image`. Large/variable-size visuals use `fill` + `si
 - **Framework:** Next.js 15.5.x, App Router
 - **Language:** TypeScript 5.x, strict mode, `@/*` path alias to repo root
 - **Styling:** Tailwind CSS 4.x
-- **3D:** `@react-three/fiber` + `@react-three/drei` (see `Model3DViewer.tsx`)
+- **3D:** `@react-three/fiber` + `@react-three/drei` (see `Model3DViewer.tsx`; `RockDust.tsx` is the star-dust ring around the rock — kept outside the camera's hold distance so it never covers the engraving)
 - **Animation:** Framer Motion (scroll-linked transforms throughout `CosmicVoyage`), GSAP, tsparticles
 - **Testing:** Vitest, @testing-library/react
 - **Lint:** ESLint flat config (`eslint.config.mjs`)

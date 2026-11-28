@@ -5,6 +5,7 @@ import { useGLTF, Environment, Float, Lightformer } from '@react-three/drei';
 import { Suspense, useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import engravingConfig from './engravingConfig.json';
+import RockDust from './RockDust';
 import type { MotionValue } from 'framer-motion';
 
 const BASE_SCALE = 1.5;
@@ -398,6 +399,9 @@ function Model3DViewer({
           <Lightformer form="rect" intensity={0.3} color="#4299e1" position={[5, -2, 2]} scale={[3, 6, 1]} />
         </Environment>
         
+        {/* Star dust orbiting the rock (see RockDust) */}
+        <RockDust />
+
         {/* 3D模型 - 物体自身缓慢自转，相机固定不动，纯装饰性，无需交互控制器 */}
         <Suspense fallback={<LoadingFallback />}>
           <Model3DObject modelPath={modelPath} autoRotateSpeed={autoRotate ? autoRotateSpeed : 0} progress={progress} />

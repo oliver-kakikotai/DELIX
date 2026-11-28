@@ -628,22 +628,15 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Custom scrollbar - 宇宙主题 */
-::-webkit-scrollbar {
-  width: 8px;
+/* No visible page scrollbar: the purple/pink gradient bar clashed with the
+   black-and-white site, and the scroll-driven homepage reads better without
+   one. Scrolling itself (wheel, trackpad, touch, keys) still works. Inner
+   scroll areas that want a bar use .custom-scrollbar above. */
+html {
+  scrollbar-width: none; /* Firefox, Chrome 121+ */
 }
-
-::-webkit-scrollbar-track {
-  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(45deg, #8b5cf6 0%, #a855f7 50%, #ec4899 100%);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(45deg, #a855f7 0%, #ec4899 50%, #f97316 100%);
+html::-webkit-scrollbar {
+  display: none; /* Safari, older Chrome */
 }
 
 /* Button hover effects */
@@ -1476,44 +1469,4 @@ html {
   .starfield-group { animation: none; }
 }
 
-/* Homepage phase "warning tag" (PhaseWarning in ProgressGates.tsx):
-   caution-tape stripes that slowly crawl outward, and a short double blink
-   whenever the phase changes. White, to stay in the HUD's palette. */
-.hazard-stripes {
-  display: block;
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0.55) 0 3px,
-    transparent 3px 7px
-  );
-  animation: hazard-crawl 1.6s linear infinite;
-}
 
-.hazard-stripes-reverse {
-  animation-direction: reverse;
-}
-
-/* 7px stripe period at 45° → 7·√2 ≈ 9.9px horizontally, so shifting by
-   exactly that loops seamlessly. */
-@keyframes hazard-crawl {
-  from { background-position: 0 0; }
-  to { background-position: -9.9px 0; }
-}
-
-.hazard-tag-flash {
-  animation: hazard-flash 0.7s steps(1, end) both;
-}
-
-@keyframes hazard-flash {
-  0% { opacity: 0; }
-  15% { opacity: 1; }
-  30% { opacity: 0.15; }
-  45% { opacity: 1; }
-  60% { opacity: 0.15; }
-  75%, 100% { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hazard-stripes,
-  .hazard-tag-flash { animation: none; }
-}

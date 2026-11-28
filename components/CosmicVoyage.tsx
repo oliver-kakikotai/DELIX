@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { albumData } from '@/data/albumData';
 import { useUnlock } from '@/contexts/UnlockContext';
 import { flightPaths, LockedMission, signalTools, SignalTool } from './cosmic-voyage/data';
@@ -14,8 +14,7 @@ import { LockedSignalAlert } from './cosmic-voyage/LockedSignalAlert';
 import { SongUnlockedAlert } from './cosmic-voyage/SongUnlockedAlert';
 import { AlbumCompleteFinale } from './cosmic-voyage/AlbumCompleteFinale';
 import { SignalToolsSection } from './cosmic-voyage/SignalToolsSection';
-import StarField from './StarField';
-import { starField } from './cosmic-voyage/data';
+import DustField from './cosmic-voyage/DustField';
 
 // Homepage scroll position saved when leaving for a song page, so coming back
 // (via "Back to Album", which pushes '/', or the browser back button) lands
@@ -74,7 +73,6 @@ export default function CosmicVoyage() {
   const portalRef = useRef<HTMLElement>(null);
   const planetsRef = useRef<HTMLElement>(null);
   const toolsRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll();
   const { scrollYProgress: portalRaw } = useScroll({
     target: portalRef,
     offset: ['start start', 'end end'],
@@ -122,7 +120,6 @@ export default function CosmicVoyage() {
     prevCollectedRef.current = current;
   }, [stats.collectedTools]);
 
-  const cameraY = useTransform(scrollYProgress, [0, 1], ['0vh', '-24vh']);
   // Deep-space drift: the rock starts small and far off, and scrolling flies
   // the 3D camera into it (see CameraRig in Model3DViewer) before handing off
   // to the planet-approach phase. The canvas is full-screen and the motion
@@ -136,11 +133,16 @@ export default function CosmicVoyage() {
   // flight-path windows, add light smoothing for wheel input only — not a
   // spring on everything (see the note at portalProgress/planetsProgress).
   const orbitOpacity = useTransform(planetsProgress, [0.2, 0.26, 0.92, 1], [0, 0.36, 0.24, 0]);
-  const portalOpacity = useTransform(portalProgress, [0, 0.08, 0.15], [1, 1, 0]);
   // Bridge from the origin story into the songs — visible as the planet
   // section slides in, gone just before the first planet arrives.
-  const introOpacity = useTransform(planetsProgress, [PLANET_INTRO_START, 0.19, 0.205], [1, 1, 0]);
-  const introY = useTransform(planetsProgress, [PLANET_INTRO_START, 0.205], ['0vh', '-6vh']);
+  // "Then it landed here" intro: no fade — once the section pins it keeps
+  // travelling up and slides straight out the top of the screen (80svh clears
+  // its half-height on any viewport) before the first planet arrives at 0.22.
+  // Opacity only drops after it's off-screen, as a guard.
+  // (Tried as star dust like the planet titles — dropped: the script lettering
+  // was unreadable as particles.)
+  const introOpacity = useTransform(planetsProgress, [0.21, 0.215], [1, 0]);
+  const introY = useTransform(planetsProgress, [PLANET_INTRO_START, 0.215], ['0svh', '-80svh']);
   const planetLayerOpacity = useTransform(planetsProgress, [0.2, 0.22, 0.965, 0.99], [0, 1, 1, 0]);
   const voyageOpacity = useTransform(planetsProgress, [0, 0.94, 1], [1, 1, 0]);
 
@@ -156,7 +158,12 @@ export default function CosmicVoyage() {
         path: flightPaths[index],
       }))
   ), [checkUnlock]);
-
+  // The phase tag's 5-star song track: a star lights up once its planet has
+  // flown in (range[1] — it's in view, not just a speck).
+  const songTrack = useMemo(
+    () => songs.map((s) => ({ id: s.id, title: s.title, unlocked: s.unlocked, arrivesAt: s.path.range[1] })),
+    [songs]
+  );
 
   const openSong = (song: typeof songs[number]) => {
     if (song.unlocked) {
@@ -195,12 +202,9 @@ export default function CosmicVoyage() {
     <main className="relative bg-black text-white">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(93,115,255,0.18),rgba(7,10,22,0.78)_36%,#000_72%)]" />
-        <motion.div
-          className="absolute inset-[-20%] opacity-35"
-          style={{ y: cameraY }}
-        >
-          <StarField stars={starField} />
-        </motion.div>
+        {/* Star dust through the whole page (same grains as the rock's dust
+            ring and the particle song titles) */}
+        <DustField />
         <motion.div
           className="absolute left-1/2 top-1/2 h-[78vmin] w-[78vmin] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10"
           style={{ opacity: orbitOpacity }}
@@ -223,17 +227,6 @@ export default function CosmicVoyage() {
             style={{ opacity: modelOpacity }}
           >
             <Model3DGate progress={portalProgress} />
-          </motion.div>
-
-          <motion.div
-            className="pointer-events-none absolute inset-0 z-20"
-            style={{ opacity: portalOpacity }}
-          >
-            <div className="absolute bottom-[16svh] left-1/2 max-w-md -translate-x-1/2 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-cyan-100/54">
-                Scroll to enter orbit
-              </p>
-            </div>
           </motion.div>
 
           <PhaseWarning progress={portalProgress} phaseSet="portal" />
@@ -285,7 +278,7 @@ export default function CosmicVoyage() {
             ))}
           </motion.div>
 
-          <PhaseWarning progress={planetsProgress} phaseSet="voyage" />
+          <PhaseWarning progress={planetsProgress} phaseSet="voyage" track={songTrack} />
         </motion.div>
       </section>
 

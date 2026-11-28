@@ -56,18 +56,16 @@ export function AlbumCompleteFinale({
           </div>
 
           <div className="relative mx-auto flex min-h-svh w-full max-w-xl flex-col items-center justify-center px-5 py-10 text-center">
-            {/* Warning-tag language, flipped to good news */}
+            {/* Same hand-lettered tag as the PhaseWarning */}
             <motion.div
-              className="hazard-tag-flash flex items-center justify-center gap-2.5"
+              className="flex items-center justify-center"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <span aria-hidden="true" className="hazard-stripes h-2.5 w-9" />
-              <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.38em] text-white/75">
+              <span className="whitespace-nowrap font-script text-2xl leading-none text-white/85">
                 Archive complete
               </span>
-              <span aria-hidden="true" className="hazard-stripes hazard-stripes-reverse h-2.5 w-9" />
             </motion.div>
 
             <motion.h2
